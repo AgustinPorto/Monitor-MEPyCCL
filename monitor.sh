@@ -203,35 +203,125 @@ cat >"$OUTPUT_HTML" <<EOF
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="refresh" content="60" />
-  <title>Monitor Dolar MEP/CCL</title>
+  <title>Radar MEP/CCL</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
   <style>
-    body{font-family:Arial,sans-serif;background:#f3f5f7;color:#1b1b1b;margin:0;padding:24px}
-    .card{max-width:820px;margin:0 auto;background:#fff;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.08);padding:24px}
-    .status{display:inline-block;padding:8px 14px;border-radius:999px;color:#fff;font-weight:700;background:${STATUS_COLOR}}
+    :root{
+      --bg-1:#f4f7fb;
+      --bg-2:#e6edf8;
+      --ink:#0f172a;
+      --muted:#475569;
+      --card:#ffffff;
+      --line:#d9e2ef;
+      --brand:#0f4c81;
+      --accent:#0ea5a6;
+      --warn-bg:#fff6e8;
+      --warn-line:#f3c17a;
+      --warn-ink:#7a4e12;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      min-height:100vh;
+      font-family:"IBM Plex Sans",sans-serif;
+      color:var(--ink);
+      background:
+        radial-gradient(1300px 500px at -10% -20%, #d9e6fa 0%, transparent 60%),
+        radial-gradient(900px 500px at 110% -10%, #d9f5ef 0%, transparent 55%),
+        linear-gradient(180deg,var(--bg-1) 0%, var(--bg-2) 100%);
+      padding:20px;
+    }
+    .card{
+      max-width:980px;
+      margin:0 auto;
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:20px;
+      box-shadow:0 20px 40px rgba(15,23,42,.08);
+      padding:22px;
+    }
+    h1,h2,h3{font-family:"Sora",sans-serif;margin:0}
+    h1{font-size:28px;letter-spacing:-.02em}
+    h2{font-size:20px;margin-top:20px}
+    .top{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap}
+    .updated{color:var(--muted);font-size:13px;margin-top:6px}
+    .pills{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+    .status{display:inline-block;padding:8px 14px;border-radius:999px;color:#fff;font-weight:700;background:${STATUS_COLOR};font-family:"Sora",sans-serif}
     .chip{display:inline-block;padding:6px 10px;border-radius:999px;color:#fff;font-size:12px;font-weight:700}
-    .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:18px}
-    .box{background:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;padding:12px}
-    .k{font-size:12px;color:#555;text-transform:uppercase;letter-spacing:.6px}
-    .v{font-size:24px;font-weight:700;margin-top:6px}
-    .f{font-size:14px;color:#333;margin-top:10px}
-    .muted{font-size:13px;color:#666}
-    .warn{background:#fff7e6;border:1px solid #f1c27d;border-radius:10px;padding:10px;margin-top:12px;color:#6e4b00}
-    canvas{width:100%;max-width:100%;height:260px;background:#fff;border:1px solid #e5e7eb;border-radius:10px}
+    .tabs{display:flex;gap:8px;margin-top:16px;border-bottom:1px solid var(--line);padding-bottom:10px}
+    .tab{
+      border:1px solid var(--line);
+      background:#f8fbff;
+      color:var(--ink);
+      border-radius:10px;
+      padding:8px 12px;
+      font-weight:600;
+      cursor:pointer;
+    }
+    .tab.active{background:var(--brand);color:#fff;border-color:var(--brand)}
+    .panel{display:none}
+    .panel.active{display:block}
+    .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:14px}
+    .grid.kpis{grid-template-columns:repeat(3,minmax(0,1fr))}
+    .box{
+      background:linear-gradient(180deg,#ffffff 0%, #f7fbff 100%);
+      border:1px solid var(--line);
+      border-radius:12px;
+      padding:12px;
+      min-height:86px;
+    }
+    .k{font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.8px;font-weight:600}
+    .v{font-size:24px;font-weight:800;margin-top:6px;font-family:"Sora",sans-serif}
+    .muted{font-size:12px;color:var(--muted);margin-top:5px}
+    .warn{background:var(--warn-bg);border:1px solid var(--warn-line);border-radius:12px;padding:10px;margin-top:10px;color:var(--warn-ink)}
+    canvas{width:100%;max-width:100%;height:270px;background:#fff;border:1px solid var(--line);border-radius:12px;margin-top:10px}
     table{width:100%;border-collapse:collapse;margin-top:12px;font-size:13px}
-    th,td{border-bottom:1px solid #e5e7eb;padding:8px;text-align:left}
-    th{background:#f8fafc}
+    th,td{border-bottom:1px solid var(--line);padding:9px;text-align:left}
+    th{background:#f4f8fd;color:#334155}
+    .foot{font-size:13px;color:var(--muted);margin-top:14px}
+    .guide-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:14px}
+    .guide-item{border:1px solid var(--line);background:#fbfdff;border-radius:12px;padding:12px}
+    .guide-item h3{font-size:15px;margin-bottom:6px}
+    .guide-item p{margin:0;color:#334155;font-size:14px;line-height:1.35}
+    @media (max-width:860px){
+      .grid,.grid.kpis,.guide-grid{grid-template-columns:1fr}
+      h1{font-size:24px}
+    }
   </style>
 </head>
 <body>
   <div class="card">
-    <h1>Monitor Dolar MEP vs CCL</h1>
-    <p class="muted">Actualizado: ${NOW_HUMAN}</p>
-    <p><span class="chip" style="background:${MARKET_COLOR}">Mercado ARG: ${MARKET_STATUS}</span> <span class="chip" style="background:${SOURCE_STATUS_COLOR}">Fuente: ${SOURCE_STATUS_TEXT}</span></p>
-    <p><span class="status">${STATUS_TEXT}</span></p>
-    <div class="grid">
-      <div class="box"><div class="k">Frescura dato fuente</div><div class="v">${FRESH_SOURCE_LABEL}</div><div class="muted">Desde último timestamp MEP/CCL</div></div>
-      <div class="box"><div class="k">Métricas 24h</div><div class="v">${METRICS_COUNT} muestras</div><div class="muted">SIMILAR: ${METRICS_SIMILAR_COUNT}</div></div>
+    <div class="top">
+      <div>
+        <h1>Radar MEP vs CCL</h1>
+        <div class="updated">Actualizado: ${NOW_HUMAN}</div>
+        <div class="pills">
+          <span class="chip" style="background:${MARKET_COLOR}">Mercado ARG: ${MARKET_STATUS}</span>
+          <span class="chip" style="background:${SOURCE_STATUS_COLOR}">Fuente: ${SOURCE_STATUS_TEXT}</span>
+          <span class="status">${STATUS_TEXT}</span>
+        </div>
+      </div>
+      <div class="box" style="min-width:220px">
+        <div class="k">Frescura dato fuente</div>
+        <div class="v">${FRESH_SOURCE_LABEL}</div>
+        <div class="muted">Minutos desde último timestamp MEP/CCL</div>
+      </div>
     </div>
+
+    <div class="tabs">
+      <button class="tab active" data-tab="overview">Panel</button>
+      <button class="tab" data-tab="guide">Glosario</button>
+    </div>
+
+    <section class="panel active" id="panel-overview">
+      <div class="grid kpis">
+        <div class="box"><div class="k">Muestras en 24h</div><div class="v">${METRICS_COUNT}</div><div class="muted">Registros totales en el período</div></div>
+        <div class="box"><div class="k">Veces en SIMILAR (24h)</div><div class="v">${METRICS_SIMILAR_COUNT}</div><div class="muted">Cantidad de momentos en zona similar</div></div>
+        <div class="box"><div class="k">Brecha % promedio (24h)</div><div class="v">${METRICS_AVG_PCT}%</div><div class="muted">Promedio de la diferencia porcentual</div></div>
+      </div>
+
     $( [[ "$FRESH_SOURCE_WARN" == "1" ]] && echo "<div class=\"warn\">El dato de fuente está desactualizado (> 60 min).</div>" )
     $( [[ "$SCRAPE_OK" == "1" ]] || echo "<div class=\"warn\">No se pudieron obtener datos nuevos. Se muestra el último estado disponible del historial.</div>" )
     <div class="grid">
@@ -241,7 +331,6 @@ cat >"$OUTPUT_HTML" <<EOF
       <div class="box"><div class="k">Diferencia porcentual</div><div class="v">${PCT_DIFF}%</div></div>
       <div class="box"><div class="k">Brecha % mínima (24h)</div><div class="v">${METRICS_MIN_PCT}%</div></div>
       <div class="box"><div class="k">Brecha % máxima (24h)</div><div class="v">${METRICS_MAX_PCT}%</div></div>
-      <div class="box"><div class="k">Brecha % promedio (24h)</div><div class="v">${METRICS_AVG_PCT}%</div></div>
     </div>
     <h2 style="margin-top:18px">Tendencia reciente</h2>
     <canvas id="trendChart" width="780" height="260"></canvas>
@@ -250,10 +339,66 @@ cat >"$OUTPUT_HTML" <<EOF
       <thead><tr><th>Hora</th><th>MEP</th><th>CCL</th><th>Dif \$</th><th>Dif %</th><th>Estado</th></tr></thead>
       <tbody id="historyRows"></tbody>
     </table>
-    <p class="f">Condicion de similitud: diferencia <= ${SIMILARITY_MAX_DIFF_ARS} ARS o <= ${SIMILARITY_MAX_DIFF_PERCENT}%</p>
-    <p class="muted">Fuente: <a href="${SOURCE_URL}" target="_blank">${SOURCE_URL}</a></p>
+    <p class="foot">Condición de similitud: diferencia <= ${SIMILARITY_MAX_DIFF_ARS} ARS o <= ${SIMILARITY_MAX_DIFF_PERCENT}%</p>
+    <p class="foot">Fuente: <a href="${SOURCE_URL}" target="_blank">${SOURCE_URL}</a></p>
+    </section>
+
+    <section class="panel" id="panel-guide">
+      <h2>Qué significa cada dato</h2>
+      <div class="guide-grid">
+        <article class="guide-item">
+          <h3>MEP venta</h3>
+          <p>Precio de venta del dólar MEP obtenido de la fuente. Es uno de los dos valores que se comparan.</p>
+        </article>
+        <article class="guide-item">
+          <h3>CCL venta</h3>
+          <p>Precio de venta del dólar CCL. Se usa junto con MEP para calcular la brecha entre ambos.</p>
+        </article>
+        <article class="guide-item">
+          <h3>Diferencia absoluta</h3>
+          <p>Distancia en pesos entre CCL y MEP. Fórmula: <strong>|MEP - CCL|</strong>.</p>
+        </article>
+        <article class="guide-item">
+          <h3>Diferencia porcentual</h3>
+          <p>Brecha relativa entre ambos dólares respecto del promedio de MEP y CCL.</p>
+        </article>
+        <article class="guide-item">
+          <h3>Estado SIMILAR / NO SIMILAR</h3>
+          <p>Se considera <strong>SIMILAR</strong> cuando la diferencia cumple el umbral configurado en pesos o en porcentaje.</p>
+        </article>
+        <article class="guide-item">
+          <h3>Frescura del dato</h3>
+          <p>Minutos desde el último timestamp recibido de la fuente. Si supera 60 min, aparece advertencia.</p>
+        </article>
+        <article class="guide-item">
+          <h3>Métricas 24h</h3>
+          <p>Resumen de las últimas 24 horas: cantidad de muestras, veces en similar y brecha mínima/máxima/promedio.</p>
+        </article>
+        <article class="guide-item">
+          <h3>Mercado ARG</h3>
+          <p>Indicador horario (Argentina) de ventana de mercado: lunes a viernes de 11:00 a 17:59.</p>
+        </article>
+      </div>
+    </section>
   </div>
   <script>
+    const tabButtons = Array.from(document.querySelectorAll(".tab"));
+    const panels = {
+      overview: document.getElementById("panel-overview"),
+      guide: document.getElementById("panel-guide")
+    };
+    tabButtons.forEach(function(btn){
+      btn.addEventListener("click", function(){
+        const t = btn.getAttribute("data-tab");
+        tabButtons.forEach(function(b){ b.classList.remove("active"); });
+        btn.classList.add("active");
+        Object.keys(panels).forEach(function(key){
+          if (key === t) panels[key].classList.add("active");
+          else panels[key].classList.remove("active");
+        });
+      });
+    });
+
     const historyData = ${HISTORY_JSON};
     const rows = document.getElementById("historyRows");
     const visible = historyData.slice(-20).reverse();
