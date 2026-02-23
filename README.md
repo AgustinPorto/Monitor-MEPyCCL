@@ -9,6 +9,8 @@ Genera un dashboard web estático con:
 - Gráfico de tendencia MEP vs CCL
 - Estado de mercado argentino (`ABIERTO`/`CERRADO`)
 - Manejo robusto de errores de fuente (sin romper dashboard)
+- Métricas de brecha en 24h (min/max/promedio + conteo de `SIMILAR`)
+- Indicador de frescura del dato de fuente (minutos desde último timestamp)
 
 Fuente: `https://www.dolarito.ar/cotizacion/dolar-hoy`
 

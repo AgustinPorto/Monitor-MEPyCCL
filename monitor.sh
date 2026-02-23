@@ -147,6 +147,55 @@ if [[ -f "$HISTORY_LOG" ]]; then
     END{printf "]"}' "$HISTORY_LOG")"
 fi
 
+FRESH_SOURCE_LABEL="N/D"
+FRESH_SOURCE_WARN=0
+LATEST_SOURCE_TS_MS=""
+if is_number "$MEP_TS" && is_number "$CCL_TS"; then
+  if [[ "$MEP_TS" -ge "$CCL_TS" ]]; then
+    LATEST_SOURCE_TS_MS="$MEP_TS"
+  else
+    LATEST_SOURCE_TS_MS="$CCL_TS"
+  fi
+elif is_number "$MEP_TS"; then
+  LATEST_SOURCE_TS_MS="$MEP_TS"
+elif is_number "$CCL_TS"; then
+  LATEST_SOURCE_TS_MS="$CCL_TS"
+fi
+
+if [[ -n "$LATEST_SOURCE_TS_MS" ]]; then
+  SOURCE_AGE_MIN="$(awk -v now="$NOW_EPOCH" -v ts="$LATEST_SOURCE_TS_MS" 'BEGIN{
+    m=(now-(ts/1000))/60;
+    if (m<0) m=0;
+    printf "%d", m
+  }')"
+  FRESH_SOURCE_LABEL="${SOURCE_AGE_MIN} min"
+  if [[ "$SOURCE_AGE_MIN" -gt 60 ]]; then
+    FRESH_SOURCE_WARN=1
+  fi
+fi
+
+METRICS_COUNT=0
+METRICS_SIMILAR_COUNT=0
+METRICS_MIN_PCT="N/D"
+METRICS_MAX_PCT="N/D"
+METRICS_AVG_PCT="N/D"
+if [[ -f "$HISTORY_LOG" ]]; then
+  read -r METRICS_COUNT METRICS_SIMILAR_COUNT METRICS_MIN_PCT METRICS_MAX_PCT METRICS_AVG_PCT <<<"$(awk -F'\\|' -v cutoff="$((NOW_EPOCH-86400))" '
+    BEGIN{cnt=0; sim=0; min=1e9; max=-1e9; sum=0}
+    NF>=7 && $1+0>=cutoff {
+      p=$6+0;
+      cnt++;
+      if ($7=="1") sim++;
+      if (p<min) min=p;
+      if (p>max) max=p;
+      sum+=p;
+    }
+    END{
+      if (cnt==0) { print "0 0 N/D N/D N/D"; exit }
+      printf "%d %d %.2f %.2f %.2f", cnt, sim, min, max, (sum/cnt);
+    }' "$HISTORY_LOG")"
+fi
+
 cat >"$OUTPUT_HTML" <<EOF
 <!doctype html>
 <html lang="es">
@@ -179,12 +228,20 @@ cat >"$OUTPUT_HTML" <<EOF
     <p class="muted">Actualizado: ${NOW_HUMAN}</p>
     <p><span class="chip" style="background:${MARKET_COLOR}">Mercado ARG: ${MARKET_STATUS}</span> <span class="chip" style="background:${SOURCE_STATUS_COLOR}">Fuente: ${SOURCE_STATUS_TEXT}</span></p>
     <p><span class="status">${STATUS_TEXT}</span></p>
+    <div class="grid">
+      <div class="box"><div class="k">Frescura dato fuente</div><div class="v">${FRESH_SOURCE_LABEL}</div><div class="muted">Desde último timestamp MEP/CCL</div></div>
+      <div class="box"><div class="k">Métricas 24h</div><div class="v">${METRICS_COUNT} muestras</div><div class="muted">SIMILAR: ${METRICS_SIMILAR_COUNT}</div></div>
+    </div>
+    $( [[ "$FRESH_SOURCE_WARN" == "1" ]] && echo "<div class=\"warn\">El dato de fuente está desactualizado (> 60 min).</div>" )
     $( [[ "$SCRAPE_OK" == "1" ]] || echo "<div class=\"warn\">No se pudieron obtener datos nuevos. Se muestra el último estado disponible del historial.</div>" )
     <div class="grid">
       <div class="box"><div class="k">MEP venta</div><div class="v">\$${MEP:-N/D}</div><div class="muted">Ref: ${MEP_HUMAN_TS}</div></div>
       <div class="box"><div class="k">CCL venta</div><div class="v">\$${CCL:-N/D}</div><div class="muted">Ref: ${CCL_HUMAN_TS}</div></div>
       <div class="box"><div class="k">Diferencia absoluta</div><div class="v">\$${ABS_DIFF}</div></div>
       <div class="box"><div class="k">Diferencia porcentual</div><div class="v">${PCT_DIFF}%</div></div>
+      <div class="box"><div class="k">Brecha % mínima (24h)</div><div class="v">${METRICS_MIN_PCT}%</div></div>
+      <div class="box"><div class="k">Brecha % máxima (24h)</div><div class="v">${METRICS_MAX_PCT}%</div></div>
+      <div class="box"><div class="k">Brecha % promedio (24h)</div><div class="v">${METRICS_AVG_PCT}%</div></div>
     </div>
     <h2 style="margin-top:18px">Tendencia reciente</h2>
     <canvas id="trendChart" width="780" height="260"></canvas>
