@@ -47,7 +47,8 @@ CRON_TZ=America/Argentina/Buenos_Aires
 Ya quedó preparado:
 - Workflow: `.github/workflows/publish-dashboard.yml`
 - Publicación desde `public/`
-- Schedule de GitHub Actions: `30-59/5 13 * * 1-5` y `*/5 14-20 * * 1-5` (equivalente UTC del horario ART)
+- Schedule de GitHub Actions (con refuerzo por offset): `30-59/5 13 * * 1-5`, `*/5 14-20 * * 1-5`, `32-57/5 13 * * 1-5`, `2-57/5 14-20 * * 1-5` (equivalente UTC del horario ART)
+- Nota: el scheduler de GitHub Actions es best-effort y puede tener demoras ocasionales.
 
 Para activarlo:
 1. Crear repo en GitHub.
