@@ -40,10 +40,12 @@ Nunca se commitean tokens ni `.env`.
 
 1. Crear KV namespace en Cloudflare:
    - `MONITOR_KV`
-2. Copiar IDs (`id` y `preview_id`) en `wrangler.toml`.
+2. Guardar IDs del namespace (`id` y `preview_id`) para cargarlos como secretos.
 3. En GitHub repo -> Settings -> Secrets and variables -> Actions:
    - agregar `CLOUDFLARE_API_TOKEN`
    - agregar `CLOUDFLARE_ACCOUNT_ID`
+   - agregar `CLOUDFLARE_KV_NAMESPACE_ID`
+   - agregar `CLOUDFLARE_KV_PREVIEW_ID`
 4. Push a `main` (o correr workflow manual `Deploy Cloudflare Worker`).
 
 ## URL final

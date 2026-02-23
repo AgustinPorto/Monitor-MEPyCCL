@@ -27,6 +27,18 @@ jobs:
       - name: Security check
         run: ./security_check.sh
 
+      - name: Validate required secrets
+        run: |
+          test -n "${{ secrets.CLOUDFLARE_API_TOKEN }}"
+          test -n "${{ secrets.CLOUDFLARE_ACCOUNT_ID }}"
+          test -n "${{ secrets.CLOUDFLARE_KV_NAMESPACE_ID }}"
+          test -n "${{ secrets.CLOUDFLARE_KV_PREVIEW_ID }}"
+
+      - name: Inject KV IDs into wrangler.toml
+        run: |
+          sed -i "s/__REEMPLAZAR_CON_KV_NAMESPACE_ID__/${{ secrets.CLOUDFLARE_KV_NAMESPACE_ID }}/g" wrangler.toml
+          sed -i "s/__REEMPLAZAR_CON_KV_PREVIEW_ID__/${{ secrets.CLOUDFLARE_KV_PREVIEW_ID }}/g" wrangler.toml
+
       - name: Deploy to Cloudflare
         run: npx wrangler deploy
         env:
