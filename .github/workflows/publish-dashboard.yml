@@ -6,8 +6,9 @@ on:
     branches:
       - main
   schedule:
-    # 11:00-17:59 ART (UTC-3) => 14:00-20:59 UTC
-    - cron: "*/15 14-20 * * 1-5"
+    # 10:30-17:59 ART (UTC-3) => 13:30-20:59 UTC, cada 5 minutos
+    - cron: "30-59/5 13 * * 1-5"
+    - cron: "*/5 14-20 * * 1-5"
 
 permissions:
   contents: read

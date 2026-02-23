@@ -55,7 +55,7 @@ MARKET_STATUS="CERRADO"
 MARKET_COLOR="#7c3f00"
 ARG_WEEKDAY="$(TZ=America/Argentina/Buenos_Aires date +%u)"
 ARG_HHMM="$(TZ=America/Argentina/Buenos_Aires date +%H%M)"
-if [[ "$ARG_WEEKDAY" -ge 1 && "$ARG_WEEKDAY" -le 5 && "$ARG_HHMM" -ge 1100 && "$ARG_HHMM" -lt 1800 ]]; then
+if [[ "$ARG_WEEKDAY" -ge 1 && "$ARG_WEEKDAY" -le 5 && "$ARG_HHMM" -ge 1030 && "$ARG_HHMM" -lt 1800 ]]; then
   MARKET_STATUS="ABIERTO"
   MARKET_COLOR="#0f7a36"
 fi
@@ -392,7 +392,7 @@ cat >"$OUTPUT_HTML" <<EOF
         </article>
         <article class="guide-item">
           <h3>Mercado ARG</h3>
-          <p>Indicador horario (Argentina) de ventana de mercado: lunes a viernes de 11:00 a 17:59.</p>
+          <p>Indicador horario (Argentina) de ventana de mercado: lunes a viernes de 10:30 a 17:59.</p>
         </article>
       </div>
     </section>

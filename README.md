@@ -31,14 +31,15 @@ Archivos locales de soporte:
 
 Configurado para mercado abierto en Argentina:
 - Lunes a viernes
-- 11:00 a 17:59 ART
-- cada 15 minutos
+- 10:30 a 17:59 ART
+- cada 5 minutos
 
 Ejemplo (genérico):
 
 ```cron
 CRON_TZ=America/Argentina/Buenos_Aires
-*/15 11-17 * * 1-5 cd /ruta/a/tu/proyecto && /bin/zsh /ruta/a/tu/proyecto/monitor.sh >> /ruta/a/tu/proyecto/monitor.log 2>&1
+30-59/5 10 * * 1-5 cd /ruta/a/tu/proyecto && /bin/zsh /ruta/a/tu/proyecto/monitor.sh >> /ruta/a/tu/proyecto/monitor.log 2>&1
+*/5 11-17 * * 1-5 cd /ruta/a/tu/proyecto && /bin/zsh /ruta/a/tu/proyecto/monitor.sh >> /ruta/a/tu/proyecto/monitor.log 2>&1
 ```
 
 ## Hosting fijo (GitHub Pages)
@@ -46,7 +47,7 @@ CRON_TZ=America/Argentina/Buenos_Aires
 Ya quedó preparado:
 - Workflow: `.github/workflows/publish-dashboard.yml`
 - Publicación desde `public/`
-- Schedule de GitHub Actions: `*/15 14-20 * * 1-5` (equivalente UTC del horario ART)
+- Schedule de GitHub Actions: `30-59/5 13 * * 1-5` y `*/5 14-20 * * 1-5` (equivalente UTC del horario ART)
 
 Para activarlo:
 1. Crear repo en GitHub.
