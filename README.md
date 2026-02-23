@@ -34,11 +34,11 @@ Configurado para mercado abierto en Argentina:
 - 11:00 a 17:59 ART
 - cada 15 minutos
 
-Entrada actual:
+Ejemplo (genérico):
 
 ```cron
 CRON_TZ=America/Argentina/Buenos_Aires
-*/15 11-17 * * 1-5 cd /Users/agustinporto/Documents/New\ project && /bin/zsh /Users/agustinporto/Documents/New\ project/monitor.sh >> /Users/agustinporto/Documents/New\ project/monitor.log 2>&1
+*/15 11-17 * * 1-5 cd /ruta/a/tu/proyecto && /bin/zsh /ruta/a/tu/proyecto/monitor.sh >> /ruta/a/tu/proyecto/monitor.log 2>&1
 ```
 
 ## Hosting fijo (GitHub Pages)
