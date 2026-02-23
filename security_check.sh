@@ -17,7 +17,7 @@ if grep -Eq '(^|/)\.env$|(^|/)\.dolar_monitor_state$|(^|/)monitor\.log$' <<<"$TR
 fi
 
 # Detect obvious private keys accidentally committed.
-if rg -n --hidden --glob '!.git' -- '-----BEGIN (RSA|EC|OPENSSH|PGP) PRIVATE KEY-----' "$ROOT_DIR"; then
+if grep -R -n -E --exclude-dir=.git -- '-----BEGIN (RSA|EC|OPENSSH|PGP) PRIVATE KEY-----' "$ROOT_DIR"; then
   echo "Se detecto una llave privada en el repo." >&2
   exit 1
 fi
@@ -31,7 +31,7 @@ if [[ "$UNEXPECTED" != "0" ]]; then
 fi
 
 # Ensure generated dashboard does not expose local paths or smtp fields.
-if rg -n 'SMTP_|/Users/|/home/' "$PUBLIC_DIR/dashboard.html"; then
+if grep -n -E 'SMTP_|/Users/|/home/' "$PUBLIC_DIR/dashboard.html"; then
   echo "dashboard.html expone datos internos." >&2
   exit 1
 fi
