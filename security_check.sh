@@ -4,14 +4,9 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PUBLIC_DIR="$ROOT_DIR/public"
 
-if [[ ! -f "$PUBLIC_DIR/dashboard.html" ]]; then
-  echo "Falta $PUBLIC_DIR/dashboard.html" >&2
-  exit 1
-fi
-
 # Ensure sensitive local files are not tracked in git.
 TRACKED="$(git -C "$ROOT_DIR" ls-files)"
-if grep -Eq '(^|/)\.env$|(^|/)\.dolar_monitor_state$|(^|/)monitor\.log$' <<<"$TRACKED"; then
+if grep -Eq '(^|/)\.env($|\\.)|(^|/)\.dev\.vars$|(^|/)\.dolar_monitor_state$|(^|/)monitor\.log$' <<<"$TRACKED"; then
   echo "Hay archivos sensibles trackeados por git." >&2
   exit 1
 fi
@@ -22,17 +17,15 @@ if grep -R -n -E --exclude-dir=.git -- '-----BEGIN (RSA|EC|OPENSSH|PGP) PRIVATE 
   exit 1
 fi
 
-# Ensure public dir only contains expected publishable file(s).
-UNEXPECTED="$(find "$PUBLIC_DIR" -type f ! -name 'dashboard.html' | wc -l | tr -d ' ')"
-if [[ "$UNEXPECTED" != "0" ]]; then
-  echo "Hay archivos inesperados dentro de public/." >&2
-  find "$PUBLIC_DIR" -type f ! -name 'dashboard.html'
+# Ensure source code does not expose obvious secrets or local paths.
+if grep -R -n -E --exclude-dir=.git --exclude-dir=node_modules --exclude='*.md' '(AKIA[0-9A-Z]{16}|-----BEGIN PRIVATE KEY-----|/Users/|/home/)' "$ROOT_DIR/src" "$ROOT_DIR/.github/workflows" "$ROOT_DIR/wrangler.toml" 2>/dev/null; then
+  echo "Se detectaron posibles datos sensibles en codigo/config." >&2
   exit 1
 fi
 
-# Ensure generated dashboard does not expose local paths or smtp fields.
-if grep -n -E 'SMTP_|/Users/|/home/' "$PUBLIC_DIR/dashboard.html"; then
-  echo "dashboard.html expone datos internos." >&2
+# Ensure Cloudflare token is never hardcoded (GitHub secrets reference is allowed).
+if grep -R -n -E --exclude-dir=.git --exclude-dir=node_modules --exclude='*.md' 'CLOUDFLARE_API_TOKEN\\s*[:=]\\s*[\"'\'']?[A-Za-z0-9._-]{20,}' "$ROOT_DIR/src" "$ROOT_DIR/.github/workflows" "$ROOT_DIR/wrangler.toml" 2>/dev/null; then
+  echo "Se detectaron posibles datos sensibles en codigo/config." >&2
   exit 1
 fi
 

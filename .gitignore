@@ -1,4 +1,6 @@
 .env
+.env.*
+.dev.vars
 .dolar_monitor_state
 .dolar_history.log
 monitor.log
@@ -6,3 +8,5 @@ monitor.log
 known_hosts
 *.tmp
 *.swp
+node_modules/
+.wrangler/

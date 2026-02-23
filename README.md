@@ -1,75 +1,71 @@
-# Monitor MEP vs CCL (Web)
+# Radar MEP vs CCL - Cloudflare Worker
 
-Genera un dashboard web estático con:
-- Dólar MEP (venta)
-- Dólar CCL (venta)
-- Diferencia absoluta y porcentual (redondeadas a 2 decimales)
-- Estado `SIMILARES` / `NO SIMILAR`
-- Historial de ejecuciones recientes
-- Gráfico de tendencia MEP vs CCL
-- Estado de mercado argentino (`ABIERTO`/`CERRADO`)
-- Manejo robusto de errores de fuente (sin romper dashboard)
-- Métricas de brecha en 24h (min/max/promedio + conteo de `SIMILAR`)
-- Indicador de frescura del dato de fuente (minutos desde último timestamp)
+Monitor web de dolar MEP y CCL con actualización automática en la nube, sin depender de PC encendida.
 
-Fuente: `https://www.dolarito.ar/cotizacion/dolar-hoy`
+## Arquitectura
 
-## Ejecución local
+- **Cloudflare Worker**:
+  - corre cron cada 5 minutos en horario de mercado ARG (10:30 a 17:59 ART, lunes a viernes),
+  - consulta `https://www.dolarito.ar/cotizacion/dolar-hoy`,
+  - calcula brecha absoluta y porcentual,
+  - guarda estado e historial en KV.
+- **KV (MONITOR_KV)**:
+  - persiste historial y último estado entre ejecuciones.
+- **Dashboard web**:
+  - servido por el mismo Worker,
+  - consume `/api/data` cada 60 segundos,
+  - muestra estado, métricas 24h, historial y gráfico.
 
-```bash
-/bin/zsh ./monitor.sh
-```
+## Cron (UTC)
 
-Salida web:
-- `public/dashboard.html` (archivo para publicar)
+En `wrangler.toml`:
 
-Archivos locales de soporte:
-- `.dolar_history.log` (historial para tabla/gráfico)
-- `.dolar_monitor_state` (estado interno de alertas)
+- `30-59/5 13 * * MON-FRI`
+- `*/5 14-20 * * MON-FRI`
 
-## Programación local (cron)
+Equivale a 10:30-17:59 ART cada 5 minutos.
 
-Configurado para mercado abierto en Argentina:
-- Lunes a viernes
-- 10:30 a 17:59 ART
-- cada 5 minutos
+## Variables y seguridad
 
-Ejemplo (genérico):
+No se usan credenciales en el frontend.
 
-```cron
-CRON_TZ=America/Argentina/Buenos_Aires
-30-59/5 10 * * 1-5 cd /ruta/a/tu/proyecto && /bin/zsh /ruta/a/tu/proyecto/monitor.sh >> /ruta/a/tu/proyecto/monitor.log 2>&1
-*/5 11-17 * * 1-5 cd /ruta/a/tu/proyecto && /bin/zsh /ruta/a/tu/proyecto/monitor.sh >> /ruta/a/tu/proyecto/monitor.log 2>&1
-```
+Para deploy por GitHub Actions se usan secretos del repo:
 
-## Hosting fijo (GitHub Pages)
+- `CLOUDFLARE_API_TOKEN`
+- `CLOUDFLARE_ACCOUNT_ID`
 
-Ya quedó preparado:
-- Workflow: `.github/workflows/publish-dashboard.yml`
-- Publicación desde `public/`
-- Schedule de GitHub Actions (con refuerzo por offset): `30-59/5 13 * * 1-5`, `*/5 14-20 * * 1-5`, `32-57/5 13 * * 1-5`, `2-57/5 14-20 * * 1-5` (equivalente UTC del horario ART)
-- Nota: el scheduler de GitHub Actions es best-effort y puede tener demoras ocasionales.
+Nunca se commitean tokens ni `.env`.
 
-Para activarlo:
-1. Crear repo en GitHub.
-2. Subir este proyecto.
-3. En GitHub, habilitar Pages (`Settings > Pages > Source: GitHub Actions`).
-4. Ejecutar el workflow `Publish Dashboard` (manual o esperar próximo cron).
+## Deploy en Cloudflare (una sola vez)
 
-URL final esperada:
-- `https://<usuario>.github.io/<repo>/dashboard.html`
+1. Crear KV namespace en Cloudflare:
+   - `MONITOR_KV`
+2. Copiar IDs (`id` y `preview_id`) en `wrangler.toml`.
+3. En GitHub repo -> Settings -> Secrets and variables -> Actions:
+   - agregar `CLOUDFLARE_API_TOKEN`
+   - agregar `CLOUDFLARE_ACCOUNT_ID`
+4. Push a `main` (o correr workflow manual `Deploy Cloudflare Worker`).
 
-## Seguridad aplicada
+## URL final
 
-- `.env` está excluido del repositorio (`.gitignore`).
-- Publicación solo de `public/dashboard.html`.
-- `security_check.sh` bloquea:
-  - archivos sensibles trackeados (`.env`, logs, state)
-  - llaves privadas en el repo
-  - exposición de rutas locales o claves SMTP en `dashboard.html`
+Queda publicada como:
 
-Ejecutar chequeo:
+- `https://<worker-name>.<subdominio>.workers.dev`
+
+El dashboard está en `/` y API en `/api/data`.
+
+## Desarrollo local
 
 ```bash
-./security_check.sh
+npm install
+npm run check
+npm run dev
 ```
+
+## Seguridad automatizada
+
+`security_check.sh` valida:
+
+- que no haya archivos sensibles trackeados,
+- que no existan llaves privadas en el repo,
+- que no se expongan tokens/API keys en código público.
