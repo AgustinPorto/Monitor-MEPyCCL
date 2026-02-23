@@ -168,7 +168,12 @@ if [[ -n "$LATEST_SOURCE_TS_MS" ]]; then
     if (m<0) m=0;
     printf "%d", m
   }')"
-  FRESH_SOURCE_LABEL="${SOURCE_AGE_MIN} min"
+  if [[ "$SOURCE_AGE_MIN" -lt 60 ]]; then
+    FRESH_SOURCE_LABEL="${SOURCE_AGE_MIN} min"
+  else
+    SOURCE_AGE_HOURS="$(awk -v m="$SOURCE_AGE_MIN" 'BEGIN{printf "%.1f", m/60}')"
+    FRESH_SOURCE_LABEL="${SOURCE_AGE_HOURS} h"
+  fi
   if [[ "$SOURCE_AGE_MIN" -gt 60 ]]; then
     FRESH_SOURCE_WARN=1
   fi
