@@ -5,6 +5,10 @@ Genera un dashboard web estático con:
 - Dólar CCL (venta)
 - Diferencia absoluta y porcentual (redondeadas a 2 decimales)
 - Estado `SIMILARES` / `NO SIMILAR`
+- Historial de ejecuciones recientes
+- Gráfico de tendencia MEP vs CCL
+- Estado de mercado argentino (`ABIERTO`/`CERRADO`)
+- Manejo robusto de errores de fuente (sin romper dashboard)
 
 Fuente: `https://www.dolarito.ar/cotizacion/dolar-hoy`
 
@@ -16,6 +20,10 @@ Fuente: `https://www.dolarito.ar/cotizacion/dolar-hoy`
 
 Salida web:
 - `public/dashboard.html` (archivo para publicar)
+
+Archivos locales de soporte:
+- `.dolar_history.log` (historial para tabla/gráfico)
+- `.dolar_monitor_state` (estado interno de alertas)
 
 ## Programación local (cron)
 

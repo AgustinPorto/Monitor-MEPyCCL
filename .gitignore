@@ -1,5 +1,6 @@
 .env
 .dolar_monitor_state
+.dolar_history.log
 monitor.log
 /dashboard.html
 known_hosts
