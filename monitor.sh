@@ -266,6 +266,16 @@ cat >"$OUTPUT_HTML" <<EOF
       cursor:pointer;
     }
     .tab.active{background:var(--brand);color:#fff;border-color:var(--brand)}
+    .notify-btn{
+      border:1px solid var(--line);
+      background:#f8fbff;
+      color:var(--ink);
+      border-radius:10px;
+      padding:8px 12px;
+      font-weight:600;
+      cursor:pointer;
+    }
+    .notify-btn.on{background:#0f7a36;color:#fff;border-color:#0f7a36}
     .panel{display:none}
     .panel.active{display:block}
     .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:14px}
@@ -318,6 +328,7 @@ cat >"$OUTPUT_HTML" <<EOF
     <div class="tabs">
       <button class="tab active" data-tab="overview">Panel</button>
       <button class="tab" data-tab="guide">Glosario</button>
+      <button class="notify-btn" id="notifyBtn">Activar notificaciones</button>
     </div>
 
     <section class="panel active" id="panel-overview">
@@ -387,6 +398,51 @@ cat >"$OUTPUT_HTML" <<EOF
     </section>
   </div>
   <script>
+    const buildEpoch = ${NOW_EPOCH};
+    const isSimilarNow = ${SIMILAR};
+    const sourceOk = ${SCRAPE_OK};
+    const notifyBtn = document.getElementById("notifyBtn");
+
+    function syncNotifyButton() {
+      if (!("Notification" in window)) {
+        notifyBtn.textContent = "Notificaciones no soportadas";
+        notifyBtn.disabled = true;
+        return;
+      }
+      if (Notification.permission === "granted") {
+        notifyBtn.textContent = "Notificaciones activas";
+        notifyBtn.classList.add("on");
+      } else if (Notification.permission === "denied") {
+        notifyBtn.textContent = "Notificaciones bloqueadas";
+      } else {
+        notifyBtn.textContent = "Activar notificaciones";
+      }
+    }
+    syncNotifyButton();
+
+    notifyBtn.addEventListener("click", async function(){
+      if (!("Notification" in window)) return;
+      if (Notification.permission === "granted") return;
+      const res = await Notification.requestPermission();
+      syncNotifyButton();
+      if (res === "granted" && sourceOk && isSimilarNow === 1) {
+        new Notification("Radar MEP/CCL", {
+          body: "Estado actual: SIMILAR. Revisá la brecha en el panel."
+        });
+      }
+    });
+
+    if ("Notification" in window && Notification.permission === "granted" && sourceOk && isSimilarNow === 1) {
+      const k = "mepccl_last_notified_build";
+      const last = Number(localStorage.getItem(k) || "0");
+      if (last < buildEpoch) {
+        new Notification("Radar MEP/CCL", {
+          body: "MEP y CCL están en zona SIMILAR."
+        });
+        localStorage.setItem(k, String(buildEpoch));
+      }
+    }
+
     const tabButtons = Array.from(document.querySelectorAll(".tab"));
     const panels = {
       overview: document.getElementById("panel-overview"),
