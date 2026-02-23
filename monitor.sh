@@ -47,7 +47,14 @@ format_ts() {
   if [[ -z "$ts" ]]; then
     echo "s/dato"
   else
-    date -r "$((ts/1000))" "+%Y-%m-%d %H:%M:%S %Z" 2>/dev/null || echo "$ts"
+    local sec="$((ts/1000))"
+    if date -r 0 "+%Y-%m-%d %H:%M:%S %Z" >/dev/null 2>&1; then
+      TZ=America/Argentina/Buenos_Aires date -r "$sec" "+%Y-%m-%d %H:%M:%S ART" 2>/dev/null || echo "$ts"
+    elif date -d "@0" "+%Y-%m-%d %H:%M:%S %Z" >/dev/null 2>&1; then
+      TZ=America/Argentina/Buenos_Aires date -d "@$sec" "+%Y-%m-%d %H:%M:%S ART" 2>/dev/null || echo "$ts"
+    else
+      echo "$ts"
+    fi
   fi
 }
 
@@ -60,7 +67,7 @@ if [[ "$ARG_WEEKDAY" -ge 1 && "$ARG_WEEKDAY" -le 5 && "$ARG_HHMM" -ge 1030 && "$
   MARKET_COLOR="#0f7a36"
 fi
 
-NOW_HUMAN="$(date '+%Y-%m-%d %H:%M:%S %Z')"
+NOW_HUMAN="$(TZ=America/Argentina/Buenos_Aires date '+%Y-%m-%d %H:%M:%S ART')"
 NOW_EPOCH="$(date +%s)"
 
 SCRAPE_OK=0
@@ -207,7 +214,6 @@ cat >"$OUTPUT_HTML" <<EOF
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta http-equiv="refresh" content="60" />
   <title>Radar MEP/CCL</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -514,6 +520,13 @@ cat >"$OUTPUT_HTML" <<EOF
       ctx.fillStyle = "#0f7a36"; ctx.fillRect(pad, 8, 10, 10); ctx.fillStyle = "#111"; ctx.fillText("MEP", pad + 14, 17);
       ctx.fillStyle = "#1d4ed8"; ctx.fillRect(pad + 60, 8, 10, 10); ctx.fillStyle = "#111"; ctx.fillText("CCL", pad + 74, 17);
     }
+
+    // Fuerza recarga con cache-busting para evitar HTML stale en CDN/navegador.
+    setTimeout(function(){
+      const u = new URL(window.location.href);
+      u.searchParams.set("v", String(Date.now()));
+      window.location.replace(u.toString());
+    }, 60000);
   </script>
 </body>
 </html>

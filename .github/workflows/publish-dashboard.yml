@@ -29,6 +29,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Restore monitor state
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            .dolar_history.log
+            .dolar_monitor_state
+          key: monitor-state-${{ github.ref_name }}-${{ github.run_id }}
+          restore-keys: |
+            monitor-state-${{ github.ref_name }}-
+
       - name: Install zsh
         run: |
           sudo apt-get update
@@ -41,6 +51,15 @@ jobs:
 
       - name: Security check
         run: ./security_check.sh
+
+      - name: Save monitor state
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            .dolar_history.log
+            .dolar_monitor_state
+          key: monitor-state-${{ github.ref_name }}-${{ github.run_id }}
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
