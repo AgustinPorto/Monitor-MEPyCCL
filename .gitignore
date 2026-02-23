@@ -1,7 +1,7 @@
 .env
 .dolar_monitor_state
 monitor.log
-dashboard.html
+/dashboard.html
 known_hosts
 *.tmp
 *.swp

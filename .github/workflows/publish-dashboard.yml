@@ -31,7 +31,7 @@ jobs:
       - name: Generate dashboard
         run: |
           chmod +x ./monitor.sh
-          OUTPUT_HTML="$GITHUB_WORKSPACE/public/dashboard.html" ENV_FILE=/tmp/nonexistent ./monitor.sh
+          OUTPUT_HTML="$GITHUB_WORKSPACE/public/dashboard.html" ENV_FILE=/tmp/nonexistent ./monitor.sh || echo "No se pudo actualizar datos; se mantiene dashboard previo."
 
       - name: Security check
         run: ./security_check.sh

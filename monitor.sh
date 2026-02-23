@@ -26,7 +26,10 @@ fi
 
 mkdir -p "$(dirname "$OUTPUT_HTML")"
 
-HTML="$(curl -sL --max-time 25 "$SOURCE_URL")"
+HTML="$(curl -sL --retry 3 --retry-delay 2 --max-time 25 \
+  -H 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36' \
+  -H 'Accept-Language: es-AR,es;q=0.9,en;q=0.8' \
+  "$SOURCE_URL")"
 
 extract_sell() {
   local key="$1"
