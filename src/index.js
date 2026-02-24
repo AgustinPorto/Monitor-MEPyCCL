@@ -21,7 +21,7 @@ export default {
       if (!state || !isUsableState(state)) {
         state = await runUpdate(env);
       }
-      return jsonResponse(state, false);
+      return jsonResponse(decorateOperationalState(state), false);
     }
 
     if (path === "/api/health") {
@@ -118,6 +118,12 @@ async function runUpdate(env) {
       latestSourceTsMs: freshness.latestTsMs,
     };
     next.status = deriveStatus(true, similar);
+    next.operational = {
+      ...(previous.operational || {}),
+      lastSuccessAtHumanArt: formatArtDate(now),
+      lastSuccessAtIso: now.toISOString(),
+      nextRunAtHumanArt: formatArtDate(computeNextScheduledRun(new Date(now.getTime() + 60 * 1000))),
+    };
     next.lastError = null;
     next.lastErrorAtIso = null;
   } catch (error) {
@@ -138,6 +144,10 @@ async function runUpdate(env) {
       latestSourceTsMs: freshness.latestTsMs,
     };
     next.status = deriveStatus(false, Boolean(previous?.current?.similar));
+    next.operational = {
+      ...(previous.operational || {}),
+      nextRunAtHumanArt: formatArtDate(computeNextScheduledRun(new Date(now.getTime() + 60 * 1000))),
+    };
     next.lastError = sanitizeError(error);
     next.lastErrorAtIso = now.toISOString();
   }
@@ -165,6 +175,7 @@ function normalizeState(state) {
     status: { ...base.status, ...(state.status || {}) },
     sourceStatus: { ...base.sourceStatus, ...(state.sourceStatus || {}) },
     metrics24h: { ...base.metrics24h, ...(state.metrics24h || {}) },
+    operational: { ...base.operational, ...(state.operational || {}) },
   };
   if (!Array.isArray(merged.history)) merged.history = [];
   if (merged.current === undefined) merged.current = null;
@@ -211,9 +222,25 @@ function buildEmptyState(now) {
       maxPct: null,
       avgPct: null,
     },
+    operational: {
+      lastSuccessAtHumanArt: null,
+      lastSuccessAtIso: null,
+      nextRunAtHumanArt: formatArtDate(computeNextScheduledRun(new Date(now.getTime() + 60 * 1000))),
+    },
     history: [],
     lastError: null,
     lastErrorAtIso: null,
+  };
+}
+
+function decorateOperationalState(state) {
+  const now = new Date();
+  return {
+    ...state,
+    operational: {
+      ...(state.operational || {}),
+      nextRunAtHumanArt: formatArtDate(computeNextScheduledRun(new Date(now.getTime() + 60 * 1000))),
+    },
   };
 }
 
@@ -302,6 +329,24 @@ function computeMetrics24h(history, nowEpoch) {
     maxPct: pctValues.length ? round2(Math.max(...pctValues)) : null,
     avgPct: pctValues.length ? round2(sum / pctValues.length) : null,
   };
+}
+
+function computeNextScheduledRun(fromDate) {
+  let cursor = new Date(fromDate.getTime());
+  cursor.setUTCSeconds(0, 0);
+
+  for (let i = 0; i < 60 * 24 * 8; i++) {
+    const parts = getArtParts(cursor);
+    const isWeekday = parts.weekday >= 1 && parts.weekday <= 5;
+    const hhmm = parts.hour * 100 + parts.minute;
+    const inWindow = hhmm >= 1030 && hhmm < 1800;
+    const aligned = parts.minute % 5 === 0;
+    if (isWeekday && inWindow && aligned) {
+      return cursor;
+    }
+    cursor = new Date(cursor.getTime() + 60 * 1000);
+  }
+  return cursor;
 }
 
 function deriveStatus(sourceOk, similar) {
@@ -464,6 +509,10 @@ function renderDashboardHtml() {
 
     <section class="panel active" id="panel-overview">
       <div id="warnArea"></div>
+      <div class="grid">
+        <div class="box"><div class="k">Última actualización exitosa</div><div class="v" id="opLastOk">N/D</div><div class="muted">Última corrida con fuente OK</div></div>
+        <div class="box"><div class="k">Próxima corrida estimada</div><div class="v" id="opNextRun">N/D</div><div class="muted">Cron de Cloudflare (ART)</div></div>
+      </div>
       <div class="grid kpis">
         <div class="box"><div class="k">Muestras en 24h</div><div class="v" id="mCount">0</div><div class="muted">Registros del período</div></div>
         <div class="box"><div class="k">Veces en SIMILAR (24h)</div><div class="v" id="mSimilar">0</div><div class="muted">Momentos en zona similar</div></div>
@@ -550,6 +599,8 @@ function renderDashboardHtml() {
       statusPill.style.background = state.status?.color || "#7c3f00";
 
       setText("freshness", state.sourceStatus?.freshLabel || "N/D");
+      setText("opLastOk", state.operational?.lastSuccessAtHumanArt || "N/D");
+      setText("opNextRun", state.operational?.nextRunAtHumanArt || "N/D");
       setText("mCount", String(state.metrics24h?.count ?? 0));
       setText("mSimilar", String(state.metrics24h?.similarCount ?? 0));
       setText("mAvg", fmtPct(state.metrics24h?.avgPct));
