@@ -7,6 +7,7 @@ const THRESHOLDS = {
   maxAbsDiffArs: 12,
   maxPctDiff: 1.0,
 };
+const DEFAULT_ALERT_COOLDOWN_MINUTES = 120;
 
 export default {
   async fetch(request, env, ctx) {
@@ -125,6 +126,7 @@ async function runUpdate(env) {
       lastSuccessAtIso: now.toISOString(),
       nextRunAtHumanArt: formatArtDate(computeNextScheduledRun(new Date(now.getTime() + 60 * 1000))),
     };
+    next.alerting = await maybeSendSimilarEmailAlert(env, previous, next, now, nowEpoch);
     next.lastError = null;
     next.lastErrorAtIso = null;
   } catch (error) {
@@ -148,6 +150,12 @@ async function runUpdate(env) {
     next.operational = {
       ...(previous.operational || {}),
       nextRunAtHumanArt: formatArtDate(computeNextScheduledRun(new Date(now.getTime() + 60 * 1000))),
+    };
+    next.alerting = {
+      ...(previous.alerting || {}),
+      enabled: isAlertsEnabled(env),
+      lastRunAtHumanArt: formatArtDate(now),
+      lastDecision: "skip_source_error",
     };
     next.lastError = sanitizeError(error);
     next.lastErrorAtIso = now.toISOString();
@@ -177,6 +185,7 @@ function normalizeState(state) {
     sourceStatus: { ...base.sourceStatus, ...(state.sourceStatus || {}) },
     metrics24h: { ...base.metrics24h, ...(state.metrics24h || {}) },
     operational: { ...base.operational, ...(state.operational || {}) },
+    alerting: { ...base.alerting, ...(state.alerting || {}) },
   };
   if (!Array.isArray(merged.history)) merged.history = [];
   if (merged.current === undefined) merged.current = null;
@@ -228,6 +237,17 @@ function buildEmptyState(now) {
       lastSuccessAtIso: null,
       nextRunAtHumanArt: formatArtDate(computeNextScheduledRun(new Date(now.getTime() + 60 * 1000))),
     },
+    alerting: {
+      enabled: false,
+      lastRunAtHumanArt: null,
+      lastDecision: "disabled",
+      cooldownMinutes: DEFAULT_ALERT_COOLDOWN_MINUTES,
+      lastEmailAtEpoch: null,
+      lastEmailAtHumanArt: null,
+      lastEmailStatus: null,
+      lastEmailError: null,
+      lastFingerprint: null,
+    },
     history: [],
     lastError: null,
     lastErrorAtIso: null,
@@ -243,6 +263,133 @@ function decorateOperationalState(state) {
       nextRunAtHumanArt: formatArtDate(computeNextScheduledRun(new Date(now.getTime() + 60 * 1000))),
     },
   };
+}
+
+function isAlertsEnabled(env) {
+  return String(env.EMAIL_ALERTS_ENABLED || "false").toLowerCase() === "true";
+}
+
+function alertCooldownMinutes(env) {
+  const parsed = Number(env.ALERT_COOLDOWN_MINUTES || DEFAULT_ALERT_COOLDOWN_MINUTES);
+  if (!Number.isFinite(parsed) || parsed <= 0) return DEFAULT_ALERT_COOLDOWN_MINUTES;
+  return Math.floor(parsed);
+}
+
+function toAlertingStatus(now, previousAlerting = {}) {
+  return {
+    ...previousAlerting,
+    enabled: true,
+    lastRunAtHumanArt: formatArtDate(now),
+    cooldownMinutes: previousAlerting.cooldownMinutes || DEFAULT_ALERT_COOLDOWN_MINUTES,
+  };
+}
+
+async function maybeSendSimilarEmailAlert(env, previousState, nextState, now, nowEpoch) {
+  const prevAlerting = previousState.alerting || {};
+  const enabled = isAlertsEnabled(env);
+  if (!enabled) {
+    return {
+      ...prevAlerting,
+      enabled: false,
+      lastRunAtHumanArt: formatArtDate(now),
+      lastDecision: "disabled",
+    };
+  }
+
+  const status = toAlertingStatus(now, prevAlerting);
+  const cooldownMinutes = alertCooldownMinutes(env);
+  status.cooldownMinutes = cooldownMinutes;
+
+  const toEmail = String(env.ALERT_TO_EMAIL || "").trim();
+  const fromEmail = String(env.ALERT_FROM_EMAIL || "").trim();
+  const resendKey = String(env.RESEND_API_KEY || "").trim();
+  const dashboardUrl = String(env.WORKER_PUBLIC_URL || "").trim() || "https://monitor-mep-ccl.agustin-esteban-porto.workers.dev";
+  if (!toEmail || !fromEmail || !resendKey) {
+    return {
+      ...status,
+      lastDecision: "skip_missing_config",
+      lastEmailStatus: "missing_config",
+    };
+  }
+
+  if (!nextState.current || !nextState.sourceStatus?.ok) {
+    return {
+      ...status,
+      lastDecision: "skip_no_data",
+    };
+  }
+  if (!nextState.current.similar) {
+    return {
+      ...status,
+      lastDecision: "skip_not_similar",
+    };
+  }
+
+  const fingerprint = `${nextState.current.mep}|${nextState.current.ccl}|${nextState.current.absDiff}|${nextState.current.pctDiff}`;
+  const lastEmailAtEpoch = Number(prevAlerting.lastEmailAtEpoch || 0);
+  const inCooldown = lastEmailAtEpoch > 0 && (nowEpoch - lastEmailAtEpoch) < cooldownMinutes * 60;
+  if (inCooldown) {
+    return {
+      ...status,
+      lastDecision: "skip_cooldown",
+      lastFingerprint: prevAlerting.lastFingerprint || null,
+    };
+  }
+
+  const subject = `Radar MEP/CCL: SIMILAR (${nextState.current.absDiff.toFixed(2)} ARS)`;
+  const html = [
+    "<h2>Alerta MEP/CCL</h2>",
+    "<p>Se detectó estado <strong>SIMILAR</strong>.</p>",
+    "<ul>",
+    `<li>MEP: $${nextState.current.mep.toFixed(2)}</li>`,
+    `<li>CCL: $${nextState.current.ccl.toFixed(2)}</li>`,
+    `<li>Diferencia: $${nextState.current.absDiff.toFixed(2)} (${nextState.current.pctDiff.toFixed(2)}%)</li>`,
+    `<li>Chequeado: ${nextState.updatedAtHumanArt}</li>`,
+    "</ul>",
+    `<p>Dashboard: <a href="${dashboardUrl}/">abrir</a></p>`,
+  ].join("");
+
+  try {
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${resendKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: fromEmail,
+        to: [toEmail],
+        subject,
+        html,
+      }),
+    });
+    if (!response.ok) {
+      const body = await response.text();
+      return {
+        ...status,
+        lastDecision: "error_send",
+        lastEmailStatus: `http_${response.status}`,
+        lastEmailError: sanitizeError(body),
+      };
+    }
+
+    return {
+      ...status,
+      lastDecision: "sent",
+      lastEmailAtEpoch: nowEpoch,
+      lastEmailAtHumanArt: formatArtDate(now),
+      lastEmailStatus: "sent",
+      lastEmailError: null,
+      lastFingerprint: fingerprint,
+    };
+  } catch (error) {
+    return {
+      ...status,
+      lastDecision: "error_send",
+      lastEmailStatus: "network_error",
+      lastEmailError: sanitizeError(error),
+    };
+  }
 }
 
 async function fetchSourceHtml(url) {

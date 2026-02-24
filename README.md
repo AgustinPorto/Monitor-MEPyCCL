@@ -36,6 +36,30 @@ Para deploy por GitHub Actions se usan secretos del repo:
 
 Nunca se commitean tokens ni `.env`.
 
+### Alertas por email (SIMILAR)
+
+El Worker puede enviar email cuando detecta estado `SIMILAR`.
+
+Variables de Worker (`wrangler.toml`):
+
+- `EMAIL_ALERTS_ENABLED` (`"true"` o `"false"`)
+- `ALERT_COOLDOWN_MINUTES` (ej: `"120"`)
+- `WORKER_PUBLIC_URL` (URL pública del dashboard)
+
+Secrets de Cloudflare Worker (no en GitHub):
+
+- `RESEND_API_KEY`
+- `ALERT_TO_EMAIL`
+- `ALERT_FROM_EMAIL` (dominio verificado en Resend)
+
+Ejemplo para cargar secrets desde terminal:
+
+```bash
+npx wrangler secret put RESEND_API_KEY
+npx wrangler secret put ALERT_TO_EMAIL
+npx wrangler secret put ALERT_FROM_EMAIL
+```
+
 ## Deploy en Cloudflare (una sola vez)
 
 1. Crear KV namespace en Cloudflare:
