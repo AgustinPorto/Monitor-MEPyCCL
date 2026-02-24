@@ -623,7 +623,13 @@ function renderDashboardHtml() {
     .box{background:linear-gradient(180deg,#fff 0%, #f7fbff 100%);border:1px solid var(--line);border-radius:12px;padding:12px;min-height:86px}
     .k{font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.8px;font-weight:600}.v{font-size:24px;font-weight:800;margin-top:6px;font-family:"Sora",sans-serif}.muted{font-size:12px;color:var(--muted);margin-top:5px}
     .warn{background:var(--warn-bg);border:1px solid var(--warn-line);border-radius:12px;padding:10px;margin-top:10px;color:var(--warn-ink)}
-    canvas{width:100%;max-width:100%;height:270px;background:#fff;border:1px solid var(--line);border-radius:12px;margin-top:10px}
+    .chart-toolbar{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-top:10px}
+    .range-btns{display:flex;gap:6px;flex-wrap:wrap}
+    .range-btn{border:1px solid var(--line);background:#f8fbff;color:var(--ink);border-radius:999px;padding:6px 10px;font-size:12px;font-weight:600;cursor:pointer}
+    .range-btn.active{background:#0f4c81;color:#fff;border-color:#0f4c81}
+    .chart-wrap{position:relative;margin-top:10px}
+    .chart-tooltip{position:absolute;pointer-events:none;background:#0f172a;color:#fff;padding:8px 10px;border-radius:10px;font-size:12px;line-height:1.35;opacity:0;transform:translate(-50%,-120%);transition:opacity .12s ease;white-space:nowrap;z-index:10}
+    canvas{display:block;width:100%;height:320px;background:#fff;border:1px solid var(--line);border-radius:12px}
     table{width:100%;border-collapse:collapse;margin-top:12px;font-size:13px} th,td{border-bottom:1px solid var(--line);padding:9px;text-align:left} th{background:#f4f8fd;color:#334155}
     .foot{font-size:13px;color:var(--muted);margin-top:14px}.guide-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:14px}
     .guide-item{border:1px solid var(--line);background:#fbfdff;border-radius:12px;padding:12px}.guide-item h3{font-size:15px;margin-bottom:6px}.guide-item p{margin:0;color:#334155;font-size:14px;line-height:1.35}
@@ -677,7 +683,18 @@ function renderDashboardHtml() {
       </div>
 
       <h2 style="margin-top:18px">Tendencia reciente</h2>
-      <canvas id="trendChart" width="780" height="260"></canvas>
+      <div class="chart-toolbar">
+        <div class="range-btns">
+          <button class="range-btn" data-range="20">20 puntos</button>
+          <button class="range-btn active" data-range="40">40 puntos</button>
+          <button class="range-btn" data-range="all">Todo</button>
+        </div>
+        <div class="muted">Hover para ver valores exactos</div>
+      </div>
+      <div class="chart-wrap">
+        <canvas id="trendChart"></canvas>
+        <div id="chartTooltip" class="chart-tooltip"></div>
+      </div>
       <h2 style="margin-top:18px">Historial</h2>
       <table>
         <thead><tr><th>Hora</th><th>MEP</th><th>CCL</th><th>Dif $</th><th>Dif %</th><th>Estado</th></tr></thead>
@@ -704,6 +721,10 @@ function renderDashboardHtml() {
 
   <script>
     let latestState = null;
+    let chartRange = "40";
+    let chartPoints = [];
+    let chartHitboxes = [];
+    let chartHoverIndex = -1;
 
     function fmtMoney(v){ return Number.isFinite(v) ? "$" + v.toFixed(2) : "N/D"; }
     function fmtPct(v){ return Number.isFinite(v) ? v.toFixed(2) + "%" : "N/D"; }
@@ -807,13 +828,25 @@ function renderDashboardHtml() {
       }
 
       const canvas = document.getElementById("trendChart");
+      const tooltip = document.getElementById("chartTooltip");
       const ctx = canvas.getContext("2d");
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      const data = history.slice(-40);
+      const dpr = Math.max(1, window.devicePixelRatio || 1);
+      const cssWidth = Math.max(320, canvas.clientWidth || 780);
+      const cssHeight = Math.max(220, canvas.clientHeight || 320);
+      canvas.width = Math.floor(cssWidth * dpr);
+      canvas.height = Math.floor(cssHeight * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, cssWidth, cssHeight);
+
+      const maxPoints = chartRange === "all" ? history.length : Number(chartRange || 40);
+      const data = history.slice(-maxPoints);
+      chartPoints = data;
+      chartHitboxes = [];
       if (!data.length) {
         ctx.fillStyle = "#666";
         ctx.font = "14px Arial";
         ctx.fillText("Sin historial disponible", 20, 40);
+        tooltip.style.opacity = "0";
         return;
       }
 
@@ -822,9 +855,9 @@ function renderDashboardHtml() {
 
       const min = Math.min(...values) * 0.995;
       const max = Math.max(...values) * 1.005;
-      const w = canvas.width;
-      const h = canvas.height;
-      const pad = 32;
+      const w = cssWidth;
+      const h = cssHeight;
+      const pad = 36;
       const x = (i) => pad + (i * (w - pad * 2)) / Math.max(data.length - 1, 1);
       const y = (v) => h - pad - ((v - min) * (h - pad * 2)) / Math.max(max - min, 1);
 
@@ -837,19 +870,81 @@ function renderDashboardHtml() {
 
       const drawLine = (key, color) => {
         ctx.strokeStyle = color;
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 2.2;
         ctx.beginPath();
         data.forEach((d, i) => {
           const px = x(i), py = y(Number(d[key]));
           if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+          if (key === "mep") chartHitboxes.push({ x: px, yMep: py, yCcl: y(Number(d.ccl)), i });
         });
         ctx.stroke();
       };
       drawLine("mep", "#0f7a36");
       drawLine("ccl", "#1d4ed8");
 
+      // Hover indicator + labels
+      if (chartHoverIndex >= 0 && chartHoverIndex < data.length) {
+        const row = data[chartHoverIndex];
+        const px = x(chartHoverIndex);
+        const pyM = y(Number(row.mep));
+        const pyC = y(Number(row.ccl));
+        ctx.strokeStyle = "rgba(15,23,42,.35)";
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(px, pad); ctx.lineTo(px, h - pad); ctx.stroke();
+
+        ctx.fillStyle = "#0f7a36";
+        ctx.beginPath(); ctx.arc(px, pyM, 4, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#1d4ed8";
+        ctx.beginPath(); ctx.arc(px, pyC, 4, 0, Math.PI * 2); ctx.fill();
+      }
+
       ctx.fillStyle = "#0f7a36"; ctx.fillRect(pad, 8, 10, 10); ctx.fillStyle = "#111"; ctx.fillText("MEP", pad + 14, 17);
       ctx.fillStyle = "#1d4ed8"; ctx.fillRect(pad + 60, 8, 10, 10); ctx.fillStyle = "#111"; ctx.fillText("CCL", pad + 74, 17);
+    }
+
+    function bindChartInteractions() {
+      const canvas = document.getElementById("trendChart");
+      const tooltip = document.getElementById("chartTooltip");
+      const rangeButtons = Array.from(document.querySelectorAll(".range-btn"));
+
+      rangeButtons.forEach((btn) => {
+        btn.addEventListener("click", () => {
+          rangeButtons.forEach((b) => b.classList.remove("active"));
+          btn.classList.add("active");
+          chartRange = btn.getAttribute("data-range") || "40";
+          chartHoverIndex = -1;
+          drawHistory(latestState?.history || []);
+        });
+      });
+
+      canvas.addEventListener("mousemove", (ev) => {
+        if (!chartPoints.length) return;
+        const rect = canvas.getBoundingClientRect();
+        const x = ev.clientX - rect.left;
+        let bestIdx = -1;
+        let bestDist = Infinity;
+        chartHitboxes.forEach((h) => {
+          const d = Math.abs(h.x - x);
+          if (d < bestDist) { bestDist = d; bestIdx = h.i; }
+        });
+        if (bestIdx < 0) return;
+        chartHoverIndex = bestIdx;
+        drawHistory(latestState?.history || []);
+
+        const row = chartPoints[bestIdx];
+        tooltip.innerHTML = row.label + "<br>MEP: $" + Number(row.mep).toFixed(2) + "<br>CCL: $" + Number(row.ccl).toFixed(2);
+        tooltip.style.left = x + "px";
+        tooltip.style.top = (ev.clientY - rect.top) + "px";
+        tooltip.style.opacity = "1";
+      });
+
+      canvas.addEventListener("mouseleave", () => {
+        chartHoverIndex = -1;
+        tooltip.style.opacity = "0";
+        drawHistory(latestState?.history || []);
+      });
+
+      window.addEventListener("resize", () => drawHistory(latestState?.history || []));
     }
 
     document.querySelectorAll(".tab").forEach((btn) => {
@@ -873,6 +968,7 @@ function renderDashboardHtml() {
     });
 
     syncNotifyButton();
+    bindChartInteractions();
     loadData();
     setInterval(loadData, 60000);
   </script>
