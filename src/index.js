@@ -1,4 +1,5 @@
 const ART_TZ = "America/Argentina/Buenos_Aires";
+const ART_LABEL = "GMT-3 (Buenos Aires)";
 const SOURCE_URL = "https://www.dolarito.ar/cotizacion/dolar-hoy";
 const STATE_KEY = "mep_ccl_state_v1";
 const MAX_HISTORY_ITEMS = 500;
@@ -290,7 +291,7 @@ function getMarketStatus(date) {
   return {
     status: isOpen ? "ABIERTO" : "CERRADO",
     isOpen,
-    windowLabel: "Lun-Vie 10:30-17:59 ART",
+    windowLabel: "Lun-Vie 10:30-17:59 GMT-3 (Buenos Aires)",
   };
 }
 
@@ -374,7 +375,7 @@ function pad2(value) {
 
 function formatArtDate(date) {
   const p = getArtParts(date);
-  return `${p.year}-${pad2(p.month)}-${pad2(p.day)} ${pad2(p.hour)}:${pad2(p.minute)}:${pad2(p.second)} ART`;
+  return `${p.year}-${pad2(p.month)}-${pad2(p.day)} ${pad2(p.hour)}:${pad2(p.minute)}:${pad2(p.second)} ${ART_LABEL}`;
 }
 
 function getArtParts(date) {
@@ -511,7 +512,7 @@ function renderDashboardHtml() {
       <div id="warnArea"></div>
       <div class="grid">
         <div class="box"><div class="k">Última actualización exitosa</div><div class="v" id="opLastOk">N/D</div><div class="muted">Última corrida con fuente OK</div></div>
-        <div class="box"><div class="k">Próxima corrida estimada</div><div class="v" id="opNextRun">N/D</div><div class="muted">Cron de Cloudflare (ART)</div></div>
+        <div class="box"><div class="k">Próxima corrida estimada</div><div class="v" id="opNextRun">N/D</div><div class="muted">Cron de Cloudflare (GMT-3, Buenos Aires)</div></div>
       </div>
       <div class="grid kpis">
         <div class="box"><div class="k">Muestras en 24h</div><div class="v" id="mCount">0</div><div class="muted">Registros del período</div></div>
@@ -549,7 +550,7 @@ function renderDashboardHtml() {
         <article class="guide-item"><h3>Estado SIMILAR / NO SIMILAR</h3><p>SIMILAR cuando se cumple el umbral de pesos o porcentaje.</p></article>
         <article class="guide-item"><h3>Frescura del dato</h3><p>Tiempo desde último timestamp recibido de la fuente.</p></article>
         <article class="guide-item"><h3>Métricas 24h</h3><p>Resumen de muestras, veces similar y brecha mínima/máxima/promedio.</p></article>
-        <article class="guide-item"><h3>Mercado ARG</h3><p>Ventana: lunes a viernes de 10:30 a 17:59 (ART).</p></article>
+        <article class="guide-item"><h3>Mercado ARG</h3><p>Ventana: lunes a viernes de 10:30 a 17:59 (GMT-3, Buenos Aires).</p></article>
       </div>
     </section>
   </div>
