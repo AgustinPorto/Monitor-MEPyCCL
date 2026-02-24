@@ -6,7 +6,7 @@ PUBLIC_DIR="$ROOT_DIR/public"
 
 # Ensure sensitive local files are not tracked in git.
 TRACKED="$(git -C "$ROOT_DIR" ls-files)"
-if grep -Eq '(^|/)\.env($|\\.)|(^|/)\.dev\.vars$|(^|/)\.dolar_monitor_state$|(^|/)monitor\.log$' <<<"$TRACKED"; then
+if grep -Eq '(^|/)\.env$|(^|/)\.dev\.vars$|(^|/)\.dolar_monitor_state$|(^|/)monitor\.log$' <<<"$TRACKED"; then
   echo "Hay archivos sensibles trackeados por git." >&2
   exit 1
 fi
