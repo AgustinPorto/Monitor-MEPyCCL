@@ -12,7 +12,7 @@ if grep -Eq '(^|/)\.env$|(^|/)\.dev\.vars$|(^|/)\.dolar_monitor_state$|(^|/)moni
 fi
 
 # Detect obvious private keys accidentally committed.
-if grep -R -n -E --exclude-dir=.git -- '-----BEGIN (RSA|EC|OPENSSH|PGP) PRIVATE KEY-----' "$ROOT_DIR"; then
+if grep -R -n -E --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=.wrangler -- '-----BEGIN (RSA|EC|OPENSSH|PGP) PRIVATE KEY-----' "$ROOT_DIR"; then
   echo "Se detecto una llave privada en el repo." >&2
   exit 1
 fi
