@@ -611,40 +611,60 @@ function renderDashboardHtml() {
   <title>Radar MEP/CCL</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <style>
-    :root{--bg-1:#f4f7fb;--bg-2:#e6edf8;--ink:#0f172a;--muted:#475569;--card:#ffffff;--line:#d9e2ef;--brand:#0f4c81;--warn-bg:#fff6e8;--warn-line:#f3c17a;--warn-ink:#7a4e12}
-    *{box-sizing:border-box} body{margin:0;min-height:100vh;font-family:"IBM Plex Sans",sans-serif;color:var(--ink);background:radial-gradient(1300px 500px at -10% -20%, #d9e6fa 0%, transparent 60%),radial-gradient(900px 500px at 110% -10%, #d9f5ef 0%, transparent 55%),linear-gradient(180deg,var(--bg-1) 0%, var(--bg-2) 100%);padding:20px}
-    .card{max-width:980px;margin:0 auto;background:var(--card);border:1px solid var(--line);border-radius:20px;box-shadow:0 20px 40px rgba(15,23,42,.08);padding:22px}
-    h1,h2,h3{font-family:"Sora",sans-serif;margin:0} h1{font-size:28px;letter-spacing:-.02em} h2{font-size:20px;margin-top:20px}
-    .top{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap} .updated{color:var(--muted);font-size:13px;margin-top:6px}
-    .pills{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px} .status{display:inline-block;padding:8px 14px;border-radius:999px;color:#fff;font-weight:700;background:#7c3f00;font-family:"Sora",sans-serif}
-    .chip{display:inline-block;padding:6px 10px;border-radius:999px;color:#fff;font-size:12px;font-weight:700;background:#64748b}
-    .tabs{display:flex;gap:8px;margin-top:16px;border-bottom:1px solid var(--line);padding-bottom:10px}
-    .tab,.notify-btn{border:1px solid var(--line);background:#f8fbff;color:var(--ink);border-radius:10px;padding:8px 12px;font-weight:600;cursor:pointer}
-    .tab.active{background:var(--brand);color:#fff;border-color:var(--brand)} .notify-btn.on{background:#0f7a36;color:#fff;border-color:#0f7a36}
+    :root{--bg:#071223;--bg2:#0f1f38;--card:#f7fbff;--card2:#ecf4ff;--ink:#0b1321;--muted:#3f556f;--line:#c9d9ea;--brand:#0e7490;--brand2:#0f4c81;--ok:#0f7a36;--bad:#a61b1b;--warn-bg:#fff4df;--warn-line:#edc36d;--warn-ink:#73450f}
+    *{box-sizing:border-box}
+    body{margin:0;min-height:100vh;font-family:"Source Sans 3",sans-serif;color:var(--ink);background:
+      radial-gradient(1000px 600px at 90% -15%, rgba(14,116,144,.32) 0%, transparent 60%),
+      radial-gradient(900px 700px at -15% 0%, rgba(15,76,129,.40) 0%, transparent 62%),
+      linear-gradient(160deg,var(--bg) 0%, var(--bg2) 100%);padding:24px}
+    .card{max-width:1160px;margin:0 auto;background:linear-gradient(180deg,var(--card) 0%, var(--card2) 100%);border:1px solid var(--line);border-radius:26px;box-shadow:0 30px 80px rgba(2,8,20,.35);padding:24px}
+    h1,h2,h3{font-family:"Space Grotesk",sans-serif;margin:0}
+    h1{font-size:34px;letter-spacing:-.02em;line-height:1}
+    h2{font-size:22px;margin-top:22px}
+    .eyebrow{display:inline-block;padding:4px 10px;border-radius:999px;background:#d8edf7;color:#14516f;font-weight:700;font-size:12px;letter-spacing:.04em;text-transform:uppercase}
+    .top{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;flex-wrap:wrap}
+    .updated{color:var(--muted);font-size:13px;margin-top:8px}
+    .pills{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+    .status{display:inline-block;padding:8px 14px;border-radius:999px;color:#fff;font-weight:700;background:#7c3f00;font-family:"Space Grotesk",sans-serif}
+    .chip{display:inline-block;padding:6px 10px;border-radius:999px;color:#fff;font-size:12px;font-weight:700;background:#5a718a}
+    .tabs{display:flex;gap:8px;margin-top:18px;padding-bottom:12px;border-bottom:1px dashed #b8cbe1}
+    .tab,.notify-btn{border:1px solid #bdd3e9;background:#f5f9ff;color:#0b2844;border-radius:12px;padding:8px 12px;font-weight:700;cursor:pointer}
+    .tab.active{background:var(--brand2);color:#fff;border-color:var(--brand2)}
+    .notify-btn.on{background:var(--ok);color:#fff;border-color:var(--ok)}
     .panel{display:none}.panel.active{display:block}
-    .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:14px}.grid.kpis{grid-template-columns:repeat(3,minmax(0,1fr))}
-    .box{background:linear-gradient(180deg,#fff 0%, #f7fbff 100%);border:1px solid var(--line);border-radius:12px;padding:12px;min-height:86px}
-    .k{font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.8px;font-weight:600}.v{font-size:24px;font-weight:800;margin-top:6px;font-family:"Sora",sans-serif}.muted{font-size:12px;color:var(--muted);margin-top:5px}
+    .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:14px}
+    .grid.kpis{grid-template-columns:repeat(3,minmax(0,1fr))}
+    .box{background:linear-gradient(180deg,#fff 0%, #f3f8ff 100%);border:1px solid #c6d9ee;border-radius:14px;padding:13px;min-height:88px;box-shadow:0 8px 22px rgba(11,19,33,.04)}
+    .k{font-size:11px;color:#4f6680;text-transform:uppercase;letter-spacing:.9px;font-weight:700}
+    .v{font-size:26px;font-weight:700;margin-top:4px;font-family:"Space Grotesk",sans-serif;line-height:1.05}
+    .muted{font-size:12px;color:var(--muted);margin-top:5px}
     .warn{background:var(--warn-bg);border:1px solid var(--warn-line);border-radius:12px;padding:10px;margin-top:10px;color:var(--warn-ink)}
     .chart-toolbar{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-top:10px}
     .range-btns{display:flex;gap:6px;flex-wrap:wrap}
-    .range-btn{border:1px solid var(--line);background:#f8fbff;color:var(--ink);border-radius:999px;padding:6px 10px;font-size:12px;font-weight:600;cursor:pointer}
+    .range-btn{border:1px solid #bed3e9;background:#f4f8ff;color:#0f304e;border-radius:999px;padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer}
     .range-btn.active{background:#0f4c81;color:#fff;border-color:#0f4c81}
     .chart-wrap{position:relative;margin-top:10px}
-    .chart-tooltip{position:absolute;pointer-events:none;background:#0f172a;color:#fff;padding:8px 10px;border-radius:10px;font-size:12px;line-height:1.35;opacity:0;transform:translate(-50%,-120%);transition:opacity .12s ease;white-space:nowrap;z-index:10}
-    canvas{display:block;width:100%;height:320px;background:#fff;border:1px solid var(--line);border-radius:12px}
-    table{width:100%;border-collapse:collapse;margin-top:12px;font-size:13px} th,td{border-bottom:1px solid var(--line);padding:9px;text-align:left} th{background:#f4f8fd;color:#334155}
-    .foot{font-size:13px;color:var(--muted);margin-top:14px}.guide-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:14px}
-    .guide-item{border:1px solid var(--line);background:#fbfdff;border-radius:12px;padding:12px}.guide-item h3{font-size:15px;margin-bottom:6px}.guide-item p{margin:0;color:#334155;font-size:14px;line-height:1.35}
-    @media (max-width:860px){.grid,.grid.kpis,.guide-grid{grid-template-columns:1fr} h1{font-size:24px}}
+    .chart-tooltip{position:absolute;pointer-events:none;background:#0a1830;color:#fff;padding:8px 10px;border-radius:10px;font-size:12px;line-height:1.35;opacity:0;transform:translate(-50%,-120%);transition:opacity .12s ease;white-space:nowrap;z-index:10;box-shadow:0 8px 20px rgba(0,0,0,.25)}
+    canvas{display:block;width:100%;height:360px;background:#ffffff;border:1px solid #c4d7ea;border-radius:14px}
+    table{width:100%;border-collapse:separate;border-spacing:0;margin-top:12px;font-size:13px;background:#fff;border:1px solid #c8d9eb;border-radius:12px;overflow:hidden}
+    th,td{border-bottom:1px solid #e0ebf7;padding:10px;text-align:left}
+    th{background:#edf5ff;color:#27435f}
+    tr:last-child td{border-bottom:none}
+    .foot{font-size:13px;color:var(--muted);margin-top:14px}
+    .guide-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:14px}
+    .guide-item{border:1px solid #c8daed;background:#f8fbff;border-radius:13px;padding:12px}
+    .guide-item h3{font-size:15px;margin-bottom:6px}
+    .guide-item p{margin:0;color:#334a64;font-size:14px;line-height:1.35}
+    @media (max-width:860px){body{padding:14px}.card{padding:16px;border-radius:18px}.grid,.grid.kpis,.guide-grid{grid-template-columns:1fr}h1{font-size:26px}canvas{height:290px}}
   </style>
 </head>
 <body>
   <div class="card">
     <div class="top">
       <div>
+        <span class="eyebrow">Mercado ARG</span>
         <h1>Radar MEP vs CCL</h1>
         <div class="updated" id="updated">Actualizado: cargando...</div>
         <div class="pills">
