@@ -1,5 +1,16 @@
 const ART_TZ = "America/Argentina/Buenos_Aires";
 const ART_LABEL = "GMT-3 (Buenos Aires)";
+const ART_FORMATTER = new Intl.DateTimeFormat("en-GB", {
+  timeZone: ART_TZ,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  hour12: false,
+  weekday: "short",
+});
 const SOURCE_URL = "https://www.dolarito.ar/cotizacion/dolar-hoy";
 const STATE_KEY = "mep_ccl_state_v1";
 const MAX_HISTORY_ITEMS = 500;
@@ -484,17 +495,23 @@ function computeNextScheduledRun(fromDate) {
   cursor.setUTCSeconds(0, 0);
 
   for (let i = 0; i < 60 * 24 * 8; i++) {
-    const parts = getArtParts(cursor);
-    const isWeekday = parts.weekday >= 1 && parts.weekday <= 5;
-    const hhmm = parts.hour * 100 + parts.minute;
-    const inWindow = hhmm >= 1030 && hhmm < 1800;
-    const aligned = parts.minute % 5 === 0;
-    if (isWeekday && inWindow && aligned) {
+    if (isScheduledUtcTick(cursor)) {
       return cursor;
     }
     cursor = new Date(cursor.getTime() + 60 * 1000);
   }
   return cursor;
+}
+
+function isScheduledUtcTick(date) {
+  const day = date.getUTCDay(); // 0=Sun ... 6=Sat
+  if (day === 0 || day === 6) return false;
+
+  const h = date.getUTCHours();
+  const m = date.getUTCMinutes();
+  if (h === 13) return m >= 30 && m <= 59 && m % 5 === 0;
+  if (h >= 14 && h <= 20) return m % 5 === 0;
+  return false;
 }
 
 function deriveStatus(sourceOk, similar) {
@@ -526,20 +543,8 @@ function formatArtDate(date) {
 }
 
 function getArtParts(date) {
-  const formatter = new Intl.DateTimeFormat("en-GB", {
-    timeZone: ART_TZ,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-    weekday: "short",
-  });
-
   const out = {};
-  for (const part of formatter.formatToParts(date)) {
+  for (const part of ART_FORMATTER.formatToParts(date)) {
     if (part.type !== "literal") out[part.type] = part.value;
   }
 
