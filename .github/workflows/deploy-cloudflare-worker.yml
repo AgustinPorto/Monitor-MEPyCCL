@@ -29,10 +29,26 @@ jobs:
 
       - name: Validate required secrets
         run: |
-          test -n "${{ secrets.CLOUDFLARE_API_TOKEN }}"
-          test -n "${{ secrets.CLOUDFLARE_ACCOUNT_ID }}"
-          test -n "${{ secrets.CLOUDFLARE_KV_NAMESPACE_ID }}"
-          test -n "${{ secrets.CLOUDFLARE_KV_PREVIEW_ID }}"
+          missing=0
+          if [ -z "${{ secrets.CLOUDFLARE_API_TOKEN }}" ]; then
+            echo "Falta secret: CLOUDFLARE_API_TOKEN"
+            missing=1
+          fi
+          if [ -z "${{ secrets.CLOUDFLARE_ACCOUNT_ID }}" ]; then
+            echo "Falta secret: CLOUDFLARE_ACCOUNT_ID"
+            missing=1
+          fi
+          if [ -z "${{ secrets.CLOUDFLARE_KV_NAMESPACE_ID }}" ]; then
+            echo "Falta secret: CLOUDFLARE_KV_NAMESPACE_ID"
+            missing=1
+          fi
+          if [ -z "${{ secrets.CLOUDFLARE_KV_PREVIEW_ID }}" ]; then
+            echo "Falta secret: CLOUDFLARE_KV_PREVIEW_ID"
+            missing=1
+          fi
+          if [ "$missing" -ne 0 ]; then
+            exit 1
+          fi
 
       - name: Inject KV IDs into wrangler.toml
         run: |
