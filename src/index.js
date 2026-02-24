@@ -17,8 +17,8 @@ export default {
     }
 
     if (path === "/api/data") {
-      let state = await loadState(env);
-      if (!state) {
+      let state = normalizeState(await loadState(env));
+      if (!state || !isUsableState(state)) {
         state = await runUpdate(env);
       }
       return jsonResponse(state, false);
@@ -154,6 +154,33 @@ async function loadState(env) {
   } catch {
     return null;
   }
+}
+
+function normalizeState(state) {
+  if (!state || typeof state !== "object") return null;
+  const base = buildEmptyState(new Date());
+  const merged = {
+    ...base,
+    ...state,
+    status: { ...base.status, ...(state.status || {}) },
+    sourceStatus: { ...base.sourceStatus, ...(state.sourceStatus || {}) },
+    metrics24h: { ...base.metrics24h, ...(state.metrics24h || {}) },
+  };
+  if (!Array.isArray(merged.history)) merged.history = [];
+  if (merged.current === undefined) merged.current = null;
+  return merged;
+}
+
+function isUsableState(state) {
+  return Boolean(
+    state &&
+      typeof state.updatedAtHumanArt === "string" &&
+      state.status &&
+      typeof state.status.text === "string" &&
+      state.sourceStatus &&
+      typeof state.sourceStatus.text === "string" &&
+      Array.isArray(state.history),
+  );
 }
 
 function buildEmptyState(now) {
