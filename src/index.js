@@ -13,6 +13,7 @@ const ART_FORMATTER = new Intl.DateTimeFormat("en-GB", {
 });
 const SOURCE_URL = "https://www.dolarito.ar/cotizacion/dolar-hoy";
 const STATE_KEY = "mep_ccl_state_v1";
+const HISTORY_KEY = "mep_ccl_history_v1";
 const MAX_HISTORY_ITEMS = 500;
 const THRESHOLDS = {
   maxAbsDiffArs: 12,
@@ -33,6 +34,13 @@ export default {
       let state = normalizeState(await loadState(env));
       if (!state || !isUsableState(state)) {
         state = await runUpdate(env);
+      }
+      if (!state.history?.length) {
+        const recoveredHistory = await loadHistory(env);
+        if (recoveredHistory.length) {
+          state.history = recoveredHistory;
+          state.metrics24h = computeMetrics24h(recoveredHistory, Math.floor(Date.now() / 1000));
+        }
       }
       return jsonResponse(decorateOperationalState(state), false);
     }
@@ -65,7 +73,10 @@ async function runUpdate(env) {
   const now = new Date();
   const nowEpoch = Math.floor(now.getTime() / 1000);
 
-  const previous = (await loadState(env)) || buildEmptyState(now);
+  const previous = normalizeState((await loadState(env)) || buildEmptyState(now));
+  if (!previous.history?.length) {
+    previous.history = await loadHistory(env);
+  }
   const next = {
     ...previous,
     version: Number(previous.version || 0) + 1,
@@ -173,6 +184,9 @@ async function runUpdate(env) {
   }
 
   await env.MONITOR_KV.put(STATE_KEY, JSON.stringify(next));
+  if (Array.isArray(next.history) && next.history.length) {
+    await saveHistory(env, next.history);
+  }
   return next;
 }
 
@@ -184,6 +198,23 @@ async function loadState(env) {
   } catch {
     return null;
   }
+}
+
+async function loadHistory(env) {
+  const raw = await env.MONITOR_KV.get(HISTORY_KEY);
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.slice(-MAX_HISTORY_ITEMS);
+  } catch {
+    return [];
+  }
+}
+
+async function saveHistory(env, history) {
+  const safe = Array.isArray(history) ? history.slice(-MAX_HISTORY_ITEMS) : [];
+  await env.MONITOR_KV.put(HISTORY_KEY, JSON.stringify(safe));
 }
 
 function normalizeState(state) {
