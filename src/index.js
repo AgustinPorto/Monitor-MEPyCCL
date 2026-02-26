@@ -613,135 +613,189 @@ function renderDashboardHtml() {
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <style>
-    :root{--bg:#071223;--bg2:#0f1f38;--card:#f7fbff;--card2:#ecf4ff;--ink:#0b1321;--muted:#3f556f;--line:#c9d9ea;--brand:#0e7490;--brand2:#0f4c81;--ok:#0f7a36;--bad:#a61b1b;--warn-bg:#fff4df;--warn-line:#edc36d;--warn-ink:#73450f}
+    :root{--bg:#040811;--bg2:#081123;--line:#1c2f4f;--card:#08101b;--card2:#0a1522;--ink:#dde8f7;--muted:#7891b1;--blue:#3fb4ff;--violet:#ab83ff;--yellow:#f5ce42;--green:#15d66f;--red:#ff4f6d;--neutral:#f0b83d}
     *{box-sizing:border-box}
-    body{margin:0;min-height:100vh;font-family:"Source Sans 3",sans-serif;color:var(--ink);background:
-      radial-gradient(1000px 600px at 90% -15%, rgba(14,116,144,.32) 0%, transparent 60%),
-      radial-gradient(900px 700px at -15% 0%, rgba(15,76,129,.40) 0%, transparent 62%),
-      linear-gradient(160deg,var(--bg) 0%, var(--bg2) 100%);padding:24px}
-    .card{max-width:1160px;margin:0 auto;background:linear-gradient(180deg,var(--card) 0%, var(--card2) 100%);border:1px solid var(--line);border-radius:26px;box-shadow:0 30px 80px rgba(2,8,20,.35);padding:24px}
+    body{margin:0;min-height:100vh;font-family:"Source Sans 3",sans-serif;color:var(--ink);background:linear-gradient(rgba(40,78,134,.14) 1px, transparent 1px),linear-gradient(90deg, rgba(40,78,134,.14) 1px, transparent 1px),radial-gradient(1200px 700px at 110% -20%, rgba(34,118,208,.22), transparent 55%),radial-gradient(900px 600px at -10% -10%, rgba(33,163,142,.18), transparent 60%),linear-gradient(160deg,var(--bg) 0%, var(--bg2) 100%);background-size:80px 80px,80px 80px,auto,auto,auto;padding:20px}
+    .card{max-width:1320px;margin:0 auto;border:1px solid #203556;border-radius:18px;background:rgba(6,13,24,.85);backdrop-filter:blur(3px);box-shadow:0 22px 70px rgba(0,0,0,.45);overflow:hidden}
     h1,h2,h3{font-family:"Space Grotesk",sans-serif;margin:0}
-    h1{font-size:34px;letter-spacing:-.02em;line-height:1}
-    h2{font-size:22px;margin-top:22px}
-    .eyebrow{display:inline-block;padding:4px 10px;border-radius:999px;background:#d8edf7;color:#14516f;font-weight:700;font-size:12px;letter-spacing:.04em;text-transform:uppercase}
-    .top{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;flex-wrap:wrap}
-    .updated{color:var(--muted);font-size:13px;margin-top:8px}
-    .pills{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
-    .status{display:inline-block;padding:8px 14px;border-radius:999px;color:#fff;font-weight:700;background:#7c3f00;font-family:"Space Grotesk",sans-serif}
-    .chip{display:inline-block;padding:6px 10px;border-radius:999px;color:#fff;font-size:12px;font-weight:700;background:#5a718a}
-    .tabs{display:flex;gap:8px;margin-top:18px;padding-bottom:12px;border-bottom:1px dashed #b8cbe1}
-    .tab,.notify-btn{border:1px solid #bdd3e9;background:#f5f9ff;color:#0b2844;border-radius:12px;padding:8px 12px;font-weight:700;cursor:pointer}
-    .tab.active{background:var(--brand2);color:#fff;border-color:var(--brand2)}
-    .notify-btn.on{background:var(--ok);color:#fff;border-color:var(--ok)}
-    .panel{display:none}.panel.active{display:block}
-    .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:14px}
-    .grid.kpis{grid-template-columns:repeat(3,minmax(0,1fr))}
-    .box{background:linear-gradient(180deg,#fff 0%, #f3f8ff 100%);border:1px solid #c6d9ee;border-radius:14px;padding:13px;min-height:88px;box-shadow:0 8px 22px rgba(11,19,33,.04)}
-    .k{font-size:11px;color:#4f6680;text-transform:uppercase;letter-spacing:.9px;font-weight:700}
-    .v{font-size:26px;font-weight:700;margin-top:4px;font-family:"Space Grotesk",sans-serif;line-height:1.05}
-    .muted{font-size:12px;color:var(--muted);margin-top:5px}
-    .warn{background:var(--warn-bg);border:1px solid var(--warn-line);border-radius:12px;padding:10px;margin-top:10px;color:var(--warn-ink)}
-    .chart-toolbar{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-top:10px}
-    .range-btns{display:flex;gap:6px;flex-wrap:wrap}
-    .range-btn{border:1px solid #bed3e9;background:#f4f8ff;color:#0f304e;border-radius:999px;padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer}
-    .range-btn.active{background:#0f4c81;color:#fff;border-color:#0f4c81}
+    .head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:14px 22px;border-bottom:1px solid #1d3252}
+    h1{font-size:42px;letter-spacing:.06em;font-weight:700;text-transform:uppercase}
+    .head-right{display:flex;gap:10px;flex-wrap:wrap}
+    .chip{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:11px;border:1px solid #29466c;background:#0d1a2c;color:#a5bfdc;font-weight:700;font-size:14px}
+    .chip.ok{background:#0f381f;border-color:#1d7642;color:#57f197}
+    .chip.alert{background:#0f301f;border-color:#20a455;color:#45f087;cursor:pointer}
+    .chip.alert.on{background:#0f6a36;color:#eafff3}
+    .content{padding:18px 22px 22px}
+    .hero{display:grid;grid-template-columns:1.5fr 1fr;gap:14px;border:1px solid #245236;border-radius:16px;padding:18px;background:linear-gradient(90deg, rgba(8,57,38,.72), rgba(10,43,35,.38));margin-bottom:14px}
+    .hero-title{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+    .hero-title h2{font-size:62px;line-height:1}
+    .hero-sub{margin-top:8px;color:#9cb5cf;font-size:20px}
+    .status-pill{font-family:"Space Grotesk",sans-serif;padding:8px 14px;border-radius:8px;font-size:28px;line-height:1;font-weight:700;text-transform:uppercase}
+    .status-pill.similar{background:#1de177;color:#032a14}
+    .status-pill.neutral{background:#ffd95a;color:#442f00}
+    .status-pill.far{background:#ff5b78;color:#2b0210}
+    .hero-meta{display:flex;flex-direction:column;align-items:flex-end;justify-content:center;text-align:right;color:#8eabd0;font-size:17px;gap:3px}
+    .hero-meta b{color:#b7cae6}
+    .hero-meta .cron{margin-top:8px;font-size:15px;color:#7f9ec7}
+    .main-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+    .metric{background:linear-gradient(180deg,var(--card),var(--card2));border:1px solid #203351;border-radius:14px;padding:18px;min-height:168px}
+    .metric.mep{border-top:3px solid var(--blue)} .metric.ccl{border-top:3px solid var(--violet)} .metric.brecha{border-top:3px solid var(--yellow)}
+    .k{font-size:30px;letter-spacing:.08em;text-transform:uppercase;color:#8aa5c7;font-family:"Space Grotesk",sans-serif}
+    .info-tip{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;border:1px solid #3f5d85;font-size:12px;color:#9fbbdb;cursor:help;position:relative}
+    .info-tip:hover::after{content:attr(data-tip);position:absolute;left:50%;bottom:125%;transform:translateX(-50%);background:#0b1b31;color:#dbe7f8;border:1px solid #34527c;padding:7px 9px;border-radius:8px;white-space:nowrap;font-size:12px;z-index:20}
+    .v{font-size:74px;font-weight:700;line-height:1.02;font-family:"Space Grotesk",sans-serif;margin-top:10px}
+    .v.blue{color:var(--blue)} .v.violet{color:var(--violet)} .v.yellow{color:var(--yellow)} .v.small{font-size:56px}
+    .muted{color:var(--muted);font-size:16px;margin-top:8px}
+    .chart-card{margin-top:14px;background:linear-gradient(180deg,#07101a,#08111d);border:1px solid #1f3351;border-radius:14px;padding:18px}
+    .chart-top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+    .chart-top h3{font-size:38px}
+    .chart-legend{display:flex;gap:18px;flex-wrap:wrap;color:#8ea9c8;margin-top:10px}
+    .legend-item{display:flex;align-items:center;gap:8px;font-size:16px}
+    .line{display:inline-block;width:26px;height:0;border-top:3px solid}
+    .range-btns{display:flex;gap:8px;flex-wrap:wrap}
+    .range-btn{background:transparent;border:1px solid #37557e;color:#a3bfdf;border-radius:999px;padding:6px 14px;font-size:16px;font-weight:700;cursor:pointer}
+    .range-btn.active{background:#35a9ff;color:#021528;border-color:#35a9ff}
     .chart-wrap{position:relative;margin-top:10px}
-    .chart-tooltip{position:absolute;pointer-events:none;background:#0a1830;color:#fff;padding:8px 10px;border-radius:10px;font-size:12px;line-height:1.35;opacity:0;transform:translate(-50%,-120%);transition:opacity .12s ease;white-space:nowrap;z-index:10;box-shadow:0 8px 20px rgba(0,0,0,.25)}
-    canvas{display:block;width:100%;height:360px;background:#ffffff;border:1px solid #c4d7ea;border-radius:14px}
-    table{width:100%;border-collapse:separate;border-spacing:0;margin-top:12px;font-size:13px;background:#fff;border:1px solid #c8d9eb;border-radius:12px;overflow:hidden}
-    th,td{border-bottom:1px solid #e0ebf7;padding:10px;text-align:left}
-    th{background:#edf5ff;color:#27435f}
-    tr:last-child td{border-bottom:none}
-    .foot{font-size:13px;color:var(--muted);margin-top:14px}
-    .guide-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:14px}
-    .guide-item{border:1px solid #c8daed;background:#f8fbff;border-radius:13px;padding:12px}
-    .guide-item h3{font-size:15px;margin-bottom:6px}
-    .guide-item p{margin:0;color:#334a64;font-size:14px;line-height:1.35}
-    @media (max-width:860px){body{padding:14px}.card{padding:16px;border-radius:18px}.grid,.grid.kpis,.guide-grid{grid-template-columns:1fr}h1{font-size:26px}canvas{height:290px}}
+    .chart-tooltip{position:absolute;pointer-events:none;background:#101f34;border:1px solid #314f77;color:#d5e4f8;padding:8px 10px;border-radius:10px;font-size:14px;line-height:1.3;opacity:0;transform:translate(-50%,-120%);transition:opacity .12s ease;white-space:nowrap;z-index:10}
+    canvas{display:block;width:100%;height:380px;background:#091420;border:1px solid #1f3452;border-radius:12px}
+    .kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-top:14px}
+    .kpi{background:linear-gradient(180deg,#0a1523,#0d1a2b);border:1px solid #1f3352;border-radius:12px;padding:14px}
+    .kpi .k{font-size:24px} .kpi .v{font-size:56px;margin-top:6px} .kpi .v.green{color:var(--green)} .kpi .v.yellow{color:var(--yellow)}
+    .history{margin-top:14px;background:linear-gradient(180deg,#08111d,#08101b);border:1px solid #1f3452;border-radius:14px;overflow:hidden}
+    .history-head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #1c3050}
+    .history-head h3{font-size:34px}
+    table{width:100%;border-collapse:collapse;font-size:17px}
+    th,td{padding:12px 14px;text-align:left;border-bottom:1px solid #1a2c48}
+    th{color:#7993b3;background:#101c2d;font-size:15px;letter-spacing:.08em;text-transform:uppercase}
+    td{color:#d6e2f4}
+    td.mepv{color:var(--blue);font-weight:700} td.cclv{color:var(--violet);font-weight:700}
+    .state-pill{display:inline-block;padding:4px 10px;border-radius:7px;font-size:15px;font-family:"Space Grotesk",sans-serif;font-weight:700}
+    .state-pill.similar{background:#0f3b22;color:#37ed88;border:1px solid #206944}
+    .state-pill.neutral{background:#4a3708;color:#ffd86a;border:1px solid #947127}
+    .state-pill.far{background:#421321;color:#ff6988;border:1px solid #8c2b44}
+    .loading-row td{color:#6f89a8}
+    .history-mobile{display:none}
+    .hcard{padding:10px;border-bottom:1px solid #1a2d49}
+    .hcard:last-child{border-bottom:none}
+    .hrow{display:flex;justify-content:space-between;gap:8px;color:#b8cbe5;font-size:14px}
+    .hrow strong{color:#e8f0fb}
+    .foot{color:#7f9cc1;font-size:14px;padding:12px 2px}
+    details.glossary{margin-top:14px;border:1px solid #1f3352;border-radius:14px;background:linear-gradient(180deg,#08111d,#08101a)}
+    details.glossary summary{cursor:pointer;list-style:none;padding:14px 16px;color:#9cb6d4;font-family:"Space Grotesk",sans-serif;font-size:28px}
+    details.glossary summary::-webkit-details-marker{display:none}
+    .guide-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0;border-top:1px solid #1a2c48}
+    .guide-item{padding:16px;border-right:1px solid #1a2c48;border-bottom:1px solid #1a2c48}
+    .guide-item:nth-child(2n){border-right:none}
+    .guide-item h3{font-size:24px;color:#89a5c8}
+    .guide-item p{margin:8px 0 0;color:#7f98b8;font-size:15px;line-height:1.45}
+    .warn{margin:12px 0;padding:10px 12px;border-radius:10px;background:#3e2f0e;border:1px solid #806226;color:#ffd681}
+    @media (max-width:1020px){h1{font-size:30px}.hero{grid-template-columns:1fr}.hero-title h2{font-size:46px}.main-cards{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.v{font-size:58px}}
+    @media (max-width:760px){body{padding:10px}.head,.content{padding:12px}.chip{font-size:12px;padding:7px 10px}.hero-title h2{font-size:36px}.status-pill{font-size:18px}.hero-sub{font-size:16px}.hero-meta{align-items:flex-start;text-align:left;font-size:14px}.k{font-size:20px}.v{font-size:46px}canvas{height:290px}table{display:none}.history-mobile{display:block}.guide-grid{grid-template-columns:1fr}.guide-item{border-right:none}}
   </style>
 </head>
 <body>
   <div class="card">
-    <div class="top">
-      <div>
-        <span class="eyebrow">Mercado ARG</span>
-        <h1>Radar MEP vs CCL</h1>
-        <div class="updated" id="updated">Actualizado: cargando...</div>
-        <div class="pills">
-          <span class="chip" id="marketChip">Mercado ARG: ...</span>
-          <span class="chip" id="sourceChip">Fuente: ...</span>
-          <span class="status" id="statusPill">...</span>
-        </div>
-      </div>
-      <div class="box" style="min-width:220px">
-        <div class="k">Frescura dato fuente</div>
-        <div class="v" id="freshness">N/D</div>
-        <div class="muted">Minutos desde último timestamp MEP/CCL</div>
+    <div class="head">
+      <h1>Radar MEP/CCL</h1>
+      <div class="head-right">
+        <span class="chip" id="freshChip">Actualizado hace ...</span>
+        <span class="chip ok" id="marketChip">Mercado ...</span>
+        <button class="chip alert" id="notifyBtn">Activar alertas</button>
       </div>
     </div>
-
-    <div class="tabs">
-      <button class="tab active" data-tab="overview">Panel</button>
-      <button class="tab" data-tab="guide">Glosario</button>
-      <button class="notify-btn" id="notifyBtn">Activar notificaciones</button>
-    </div>
-
-    <section class="panel active" id="panel-overview">
+    <div class="content">
       <div id="warnArea"></div>
-      <div class="grid">
-        <div class="box"><div class="k">Última actualización exitosa</div><div class="v" id="opLastOk">N/D</div><div class="muted">Última corrida con fuente OK</div></div>
-        <div class="box"><div class="k">Próxima corrida estimada</div><div class="v" id="opNextRun">N/D</div><div class="muted">Cron de Cloudflare (GMT-3, Buenos Aires)</div></div>
-      </div>
-      <div class="grid kpis">
-        <div class="box"><div class="k">Muestras en 24h</div><div class="v" id="mCount">0</div><div class="muted">Registros del período</div></div>
-        <div class="box"><div class="k">Veces en SIMILAR (24h)</div><div class="v" id="mSimilar">0</div><div class="muted">Momentos en zona similar</div></div>
-        <div class="box"><div class="k">Brecha % promedio (24h)</div><div class="v" id="mAvg">N/D</div><div class="muted">Promedio porcentual</div></div>
-      </div>
 
-      <div class="grid">
-        <div class="box"><div class="k">MEP venta</div><div class="v" id="mep">N/D</div><div class="muted" id="mepRef">Ref: s/dato</div></div>
-        <div class="box"><div class="k">CCL venta</div><div class="v" id="ccl">N/D</div><div class="muted" id="cclRef">Ref: s/dato</div></div>
-        <div class="box"><div class="k">Diferencia absoluta</div><div class="v" id="absDiff">N/D</div></div>
-        <div class="box"><div class="k">Diferencia porcentual</div><div class="v" id="pctDiff">N/D</div></div>
-        <div class="box"><div class="k">Brecha % mínima (24h)</div><div class="v" id="mMin">N/D</div></div>
-        <div class="box"><div class="k">Brecha % máxima (24h)</div><div class="v" id="mMax">N/D</div></div>
-      </div>
-
-      <h2 style="margin-top:18px">Tendencia reciente</h2>
-      <div class="chart-toolbar">
-        <div class="range-btns">
-          <button class="range-btn" data-range="20">20 puntos</button>
-          <button class="range-btn active" data-range="40">40 puntos</button>
-          <button class="range-btn" data-range="all">Todo</button>
+      <section class="hero" id="heroBox">
+        <div>
+          <div class="hero-title">
+            <h2>MEP ~ CCL</h2>
+            <span class="status-pill" id="statusPill">...</span>
+          </div>
+          <div class="hero-sub" id="heroText">Evaluando similitud actual...</div>
         </div>
-        <div class="muted">Hover para ver valores exactos</div>
-      </div>
-      <div class="chart-wrap">
-        <canvas id="trendChart"></canvas>
-        <div id="chartTooltip" class="chart-tooltip"></div>
-      </div>
-      <h2 style="margin-top:18px">Historial</h2>
-      <table>
-        <thead><tr><th>Hora</th><th>MEP</th><th>CCL</th><th>Dif $</th><th>Dif %</th><th>Estado</th></tr></thead>
-        <tbody id="historyRows"></tbody>
-      </table>
+        <div class="hero-meta">
+          <div><b>Ultima corrida:</b> <span id="opLastOk">N/D</span></div>
+          <div><b>Proxima:</b> <span id="opNextRun">N/D</span></div>
+          <div class="cron">Cron GMT-3 - Lun-Vie 10:30-18:00</div>
+        </div>
+      </section>
+
+      <section class="main-cards">
+        <article class="metric mep">
+          <div class="k">MEP VENTA <span class="info-tip" data-tip="Precio de venta del dolar MEP.">i</span></div>
+          <div class="v blue" id="mep">$0.00</div>
+          <div class="muted" id="mepRef">dolarito.ar · venta</div>
+        </article>
+        <article class="metric ccl">
+          <div class="k">CCL VENTA <span class="info-tip" data-tip="Precio de venta del dolar CCL.">i</span></div>
+          <div class="v violet" id="ccl">$0.00</div>
+          <div class="muted" id="cclRef">dolarito.ar · venta</div>
+        </article>
+        <article class="metric brecha">
+          <div class="k">BRECHA <span class="info-tip" data-tip="Diferencia absoluta y porcentual entre MEP y CCL.">i</span></div>
+          <div class="v small" id="absDiff">$0.00</div>
+          <div class="v small yellow" id="pctDiff">0.00%</div>
+          <div class="muted">diferencia absoluta · porcentual</div>
+        </article>
+      </section>
+
+      <section class="chart-card">
+        <div class="chart-top">
+          <h3>Tendencia de brecha - ultimas 24h</h3>
+          <div class="range-btns">
+            <button class="range-btn" data-range="20">20 pts</button>
+            <button class="range-btn active" data-range="40">40 pts</button>
+            <button class="range-btn" data-range="all">Todo</button>
+          </div>
+        </div>
+        <div class="chart-legend">
+          <span class="legend-item"><span class="line" style="border-color:#3fb4ff"></span>MEP venta</span>
+          <span class="legend-item"><span class="line" style="border-color:#ab83ff"></span>CCL venta</span>
+          <span class="legend-item"><span class="line" style="border-color:#f5ce42"></span>Brecha %</span>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="trendChart"></canvas>
+          <div id="chartTooltip" class="chart-tooltip"></div>
+        </div>
+      </section>
+
+      <section class="kpis">
+        <article class="kpi"><div class="k">Muestras 24h</div><div class="v" id="mCount">0</div><div class="muted">registros del periodo</div></article>
+        <article class="kpi"><div class="k">Veces Similar</div><div class="v green" id="mSimilar">0</div><div class="muted">momentos en zona similar</div></article>
+        <article class="kpi"><div class="k">Brecha Min.</div><div class="v" id="mMin">0.00%</div><div class="muted">minima registrada hoy</div></article>
+        <article class="kpi"><div class="k">Brecha Max.</div><div class="v yellow" id="mMax">0.00%</div><div class="muted">maxima registrada hoy</div></article>
+      </section>
+
+      <section class="history">
+        <div class="history-head">
+          <h3>Historial de registros</h3>
+          <div class="muted">Ultimas 8 muestras</div>
+        </div>
+        <table>
+          <thead><tr><th>Hora</th><th>MEP</th><th>CCL</th><th>Dif $</th><th>Dif %</th><th>Estado</th></tr></thead>
+          <tbody id="historyRows">
+            <tr class="loading-row"><td colspan="6">Cargando historial...</td></tr>
+          </tbody>
+        </table>
+        <div class="history-mobile" id="historyMobile"></div>
+      </section>
+
+      <details class="glossary">
+        <summary>Glosario de terminos</summary>
+        <div class="guide-grid">
+          <article class="guide-item"><h3>MEP VENTA</h3><p>Precio de venta del dolar MEP (Mercado Electronico de Pagos), obtenido mediante compra/venta de bonos.</p></article>
+          <article class="guide-item"><h3>CCL VENTA</h3><p>Contado con liquidacion. Similar al MEP pero permite transferir divisas al exterior.</p></article>
+          <article class="guide-item"><h3>DIFERENCIA %</h3><p>Brecha relativa calculada contra el promedio entre MEP y CCL.</p></article>
+          <article class="guide-item"><h3>FRESCURA DATO</h3><p>Tiempo transcurrido desde el ultimo timestamp recibido de la fuente.</p></article>
+          <article class="guide-item"><h3>ESTADO</h3><p>SIMILAR cuando la brecha entra en umbral. NO SIMILAR cuando se aleja. Zona gris para borde.</p></article>
+          <article class="guide-item"><h3>MERCADO ARG</h3><p>Ventana operativa visible: 10:30 a 17:59 (GMT-3, Buenos Aires).</p></article>
+        </div>
+      </details>
+
       <p class="foot" id="ruleText"></p>
       <p class="foot">Fuente: <a id="sourceLink" href="#" target="_blank" rel="noopener noreferrer">dolarito.ar</a></p>
-    </section>
-
-    <section class="panel" id="panel-guide">
-      <h2>Qué significa cada dato</h2>
-      <div class="guide-grid">
-        <article class="guide-item"><h3>MEP venta</h3><p>Precio de venta del dólar MEP obtenido de la fuente.</p></article>
-        <article class="guide-item"><h3>CCL venta</h3><p>Precio de venta del dólar CCL para comparación de brecha.</p></article>
-        <article class="guide-item"><h3>Diferencia absoluta</h3><p>Distancia en pesos entre CCL y MEP: <strong>|MEP - CCL|</strong>.</p></article>
-        <article class="guide-item"><h3>Diferencia porcentual</h3><p>Brecha relativa contra el promedio entre ambos valores.</p></article>
-        <article class="guide-item"><h3>Estado SIMILAR / NO SIMILAR</h3><p>SIMILAR cuando se cumple el umbral de pesos o porcentaje.</p></article>
-        <article class="guide-item"><h3>Frescura del dato</h3><p>Tiempo desde último timestamp recibido de la fuente.</p></article>
-        <article class="guide-item"><h3>Métricas 24h</h3><p>Resumen de muestras, veces similar y brecha mínima/máxima/promedio.</p></article>
-        <article class="guide-item"><h3>Mercado ARG</h3><p>Ventana: lunes a viernes de 10:30 a 17:59 (GMT-3, Buenos Aires).</p></article>
-      </div>
-    </section>
+    </div>
   </div>
 
   <script>
@@ -758,10 +812,10 @@ function renderDashboardHtml() {
 
     function syncNotifyButton() {
       const btn = document.getElementById("notifyBtn");
-      if (!("Notification" in window)) { btn.textContent = "Notificaciones no soportadas"; btn.disabled = true; return; }
-      if (Notification.permission === "granted") { btn.textContent = "Notificaciones activas"; btn.classList.add("on"); return; }
-      if (Notification.permission === "denied") { btn.textContent = "Notificaciones bloqueadas"; return; }
-      btn.textContent = "Activar notificaciones";
+      if (!("Notification" in window)) { btn.textContent = "Alertas no soportadas"; btn.disabled = true; return; }
+      if (Notification.permission === "granted") { btn.textContent = "Alertas activas"; btn.classList.add("on"); return; }
+      if (Notification.permission === "denied") { btn.textContent = "Alertas bloqueadas"; return; }
+      btn.textContent = "Activar alertas";
     }
 
     async function loadData() {
@@ -776,48 +830,74 @@ function renderDashboardHtml() {
       }
     }
 
+    function stateTier(state) {
+      if (!state?.sourceStatus?.ok) return "neutral";
+      if (state?.current?.similar) return "similar";
+      const pct = Number(state?.current?.pctDiff);
+      const edge = Number(state?.thresholds?.maxPctDiff || 1) * 1.5;
+      if (Number.isFinite(pct) && pct <= edge) return "neutral";
+      return "far";
+    }
+
+    function formatRelativeMinutes(epochSec) {
+      if (!Number.isFinite(epochSec)) return "Actualizado recien";
+      const delta = Math.max(0, Math.floor((Date.now() / 1000 - epochSec) / 60));
+      if (delta < 1) return "Actualizado recien";
+      if (delta === 1) return "Actualizado hace 1 min";
+      if (delta < 60) return "Actualizado hace " + delta + " min";
+      const h = Math.floor(delta / 60);
+      return "Actualizado hace " + h + " h";
+    }
+
     function render(state) {
       latestState = state;
-      setText("updated", "Actualizado: " + (state.updatedAtHumanArt || "N/D"));
-
-      const marketChip = document.getElementById("marketChip");
-      marketChip.textContent = "Mercado ARG: " + (state.market?.status || "N/D");
-      marketChip.style.background = state.market?.isOpen ? "#0f7a36" : "#7c3f00";
-
-      const sourceChip = document.getElementById("sourceChip");
-      sourceChip.textContent = "Fuente: " + (state.sourceStatus?.text || "N/D");
-      sourceChip.style.background = state.sourceStatus?.ok ? "#0f7a36" : "#a61b1b";
-
+      const tier = stateTier(state);
       const statusPill = document.getElementById("statusPill");
-      statusPill.textContent = state.status?.text || "N/D";
-      statusPill.style.background = state.status?.color || "#7c3f00";
+      const hero = document.getElementById("heroBox");
+      const freshChip = document.getElementById("freshChip");
+      const marketChip = document.getElementById("marketChip");
 
-      setText("freshness", state.sourceStatus?.freshLabel || "N/D");
+      statusPill.className = "status-pill " + (tier === "similar" ? "similar" : tier === "far" ? "far" : "neutral");
+      statusPill.textContent = tier === "similar" ? "SIMILAR" : tier === "far" ? "NO SIMILAR" : "ZONA GRIS";
+      hero.style.borderColor = tier === "similar" ? "#245236" : tier === "far" ? "#5a2230" : "#6b5620";
+
+      setText("heroText", tier === "similar"
+        ? "La brecha esta dentro del umbral - los precios son comparables"
+        : tier === "far"
+          ? "La brecha supera el umbral - los precios estan alejados"
+          : "La brecha esta cerca del umbral - seguimiento recomendado");
+
+      freshChip.textContent = formatRelativeMinutes(Number(state.updatedAtEpoch));
+      marketChip.textContent = state.market?.isOpen ? "MERCADO ABIERTO" : "MERCADO CERRADO";
+      marketChip.className = "chip ok";
+      marketChip.style.background = state.market?.isOpen ? "#0f381f" : "#41210f";
+      marketChip.style.borderColor = state.market?.isOpen ? "#1d7642" : "#7f3e1d";
+      marketChip.style.color = state.market?.isOpen ? "#57f197" : "#ffc28e";
+
       setText("opLastOk", state.operational?.lastSuccessAtHumanArt || "N/D");
       setText("opNextRun", state.operational?.nextRunAtHumanArt || "N/D");
       setText("mCount", String(state.metrics24h?.count ?? 0));
       setText("mSimilar", String(state.metrics24h?.similarCount ?? 0));
-      setText("mAvg", fmtPct(state.metrics24h?.avgPct));
       setText("mMin", fmtPct(state.metrics24h?.minPct));
       setText("mMax", fmtPct(state.metrics24h?.maxPct));
 
       setText("mep", fmtMoney(state.current?.mep));
       setText("ccl", fmtMoney(state.current?.ccl));
-      setText("mepRef", "Ref: " + (state.current?.mepTsHuman || "s/dato"));
-      setText("cclRef", "Ref: " + (state.current?.cclTsHuman || "s/dato"));
+      setText("mepRef", (state.current?.mepTsHuman || "s/dato"));
+      setText("cclRef", (state.current?.cclTsHuman || "s/dato"));
       setText("absDiff", fmtMoney(state.current?.absDiff));
       setText("pctDiff", fmtPct(state.current?.pctDiff));
 
-      setText("ruleText", "Condición de similitud: diferencia <= " + state.thresholds.maxAbsDiffArs + " ARS o <= " + state.thresholds.maxPctDiff + "%");
+      setText("ruleText", "Condicion de similitud: diferencia <= " + state.thresholds.maxAbsDiffArs + " ARS o <= " + state.thresholds.maxPctDiff + "%");
       const sourceLink = document.getElementById("sourceLink");
       sourceLink.href = state.sourceUrl || "https://www.dolarito.ar/cotizacion/dolar-hoy";
       sourceLink.textContent = sourceLink.href;
 
       const warnings = [];
-      if (!state.sourceStatus?.ok) warnings.push("No se pudieron obtener datos nuevos. Se muestra el último estado disponible.");
-      if (state.sourceStatus?.freshWarn) warnings.push("El dato de fuente está desactualizado (> 60 min).");
+      if (!state.sourceStatus?.ok) warnings.push("No se pudieron obtener datos nuevos. Se muestra el ultimo estado disponible.");
+      if (state.sourceStatus?.freshWarn) warnings.push("El dato de fuente esta desactualizado (> 60 min).");
       const warnArea = document.getElementById("warnArea");
-      warnArea.innerHTML = warnings.map((w) => '<div class="warn">' + w + '</div>').join("");
+      warnArea.innerHTML = warnings.map((w) => '<div class="warn">' + w + "</div>").join("");
 
       drawHistory(state.history || []);
       maybeNotify(state);
@@ -839,17 +919,32 @@ function renderDashboardHtml() {
 
     function drawHistory(history) {
       const rows = document.getElementById("historyRows");
+      const mobile = document.getElementById("historyMobile");
       rows.innerHTML = "";
+      mobile.innerHTML = "";
       const visible = history.slice(-20).reverse();
+      if (!visible.length) {
+        rows.innerHTML = '<tr class="loading-row"><td colspan="6">Sin datos todavia. Esperando proxima corrida...</td></tr>';
+      }
       for (const r of visible) {
+        const tier = r.similar ? "similar" : (Number(r.pct_diff) <= 1.5 ? "neutral" : "far");
         const tr = document.createElement("tr");
         tr.innerHTML = "<td>" + r.label + "</td>"
-          + "<td>" + fmtMoney(Number(r.mep)) + "</td>"
-          + "<td>" + fmtMoney(Number(r.ccl)) + "</td>"
+          + "<td class=\"mepv\">" + fmtMoney(Number(r.mep)) + "</td>"
+          + "<td class=\"cclv\">" + fmtMoney(Number(r.ccl)) + "</td>"
           + "<td>" + fmtMoney(Number(r.abs_diff)) + "</td>"
           + "<td>" + fmtPct(Number(r.pct_diff)) + "</td>"
-          + "<td>" + (r.similar ? "SIMILAR" : "NO") + "</td>";
+          + "<td><span class=\"state-pill " + tier + "\">" + (tier === "similar" ? "SIMILAR" : tier === "neutral" ? "ZONA GRIS" : "NO SIMILAR") + "</span></td>";
         rows.appendChild(tr);
+
+        const card = document.createElement("div");
+        card.className = "hcard";
+        card.innerHTML = "<div class=\"hrow\"><span>Hora</span><strong>" + r.label + "</strong></div>"
+          + "<div class=\"hrow\"><span>MEP</span><strong>" + fmtMoney(Number(r.mep)) + "</strong></div>"
+          + "<div class=\"hrow\"><span>CCL</span><strong>" + fmtMoney(Number(r.ccl)) + "</strong></div>"
+          + "<div class=\"hrow\"><span>Dif</span><strong>" + fmtMoney(Number(r.abs_diff)) + " · " + fmtPct(Number(r.pct_diff)) + "</strong></div>"
+          + "<div class=\"hrow\"><span>Estado</span><span class=\"state-pill " + tier + "\">" + (tier === "similar" ? "SIMILAR" : tier === "neutral" ? "ZONA GRIS" : "NO SIMILAR") + "</span></div>";
+        mobile.appendChild(card);
       }
 
       const canvas = document.getElementById("trendChart");
@@ -868,7 +963,7 @@ function renderDashboardHtml() {
       chartPoints = data;
       chartHitboxes = [];
       if (!data.length) {
-        ctx.fillStyle = "#666";
+        ctx.fillStyle = "#8ea6c5";
         ctx.font = "14px Arial";
         ctx.fillText("Sin historial disponible", 20, 40);
         tooltip.style.opacity = "0";
@@ -876,21 +971,35 @@ function renderDashboardHtml() {
       }
 
       const values = data.flatMap((d) => [Number(d.mep), Number(d.ccl)]).filter((n) => Number.isFinite(n));
+      const pctValues = data.map((d) => Number(d.pct_diff)).filter((n) => Number.isFinite(n));
       if (!values.length) return;
 
       const min = Math.min(...values) * 0.995;
       const max = Math.max(...values) * 1.005;
+      const minPct = Math.max(0, Math.min(...pctValues) * 0.9);
+      const maxPct = Math.max(1, Math.max(...pctValues) * 1.15);
       const w = cssWidth;
       const h = cssHeight;
-      const pad = 36;
-      const x = (i) => pad + (i * (w - pad * 2)) / Math.max(data.length - 1, 1);
-      const y = (v) => h - pad - ((v - min) * (h - pad * 2)) / Math.max(max - min, 1);
+      const padL = 56;
+      const padR = 56;
+      const padY = 34;
+      const chartW = w - padL - padR;
+      const chartH = h - padY * 2;
+      const x = (i) => padL + (i * chartW) / Math.max(data.length - 1, 1);
+      const y = (v) => h - padY - ((v - min) * chartH) / Math.max(max - min, 1);
+      const yPct = (v) => h - padY - ((v - minPct) * chartH) / Math.max(maxPct - minPct, 1);
 
-      ctx.strokeStyle = "#e5e7eb";
+      ctx.strokeStyle = "#1b3250";
       ctx.lineWidth = 1;
       for (let i = 0; i < 4; i++) {
-        const yy = pad + (i * (h - pad * 2)) / 3;
-        ctx.beginPath(); ctx.moveTo(pad, yy); ctx.lineTo(w - pad, yy); ctx.stroke();
+        const yy = padY + (i * chartH) / 3;
+        ctx.beginPath(); ctx.moveTo(padL, yy); ctx.lineTo(w - padR, yy); ctx.stroke();
+        const priceTick = (max - ((max - min) * i) / 3).toFixed(0);
+        const pctTick = (maxPct - ((maxPct - minPct) * i) / 3).toFixed(2) + "%";
+        ctx.fillStyle = "#607c9f";
+        ctx.font = "12px Source Sans 3";
+        ctx.fillText("$" + priceTick, 8, yy + 4);
+        ctx.fillText(pctTick, w - padR + 8, yy + 4);
       }
 
       const drawLine = (key, color) => {
@@ -900,12 +1009,32 @@ function renderDashboardHtml() {
         data.forEach((d, i) => {
           const px = x(i), py = y(Number(d[key]));
           if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
-          if (key === "mep") chartHitboxes.push({ x: px, yMep: py, yCcl: y(Number(d.ccl)), i });
+          if (key === "mep") chartHitboxes.push({ x: px, yMep: py, yCcl: y(Number(d.ccl)), yPct: yPct(Number(d.pct_diff)), i });
         });
         ctx.stroke();
       };
-      drawLine("mep", "#0f7a36");
-      drawLine("ccl", "#1d4ed8");
+      drawLine("mep", "#3fb4ff");
+      drawLine("ccl", "#ab83ff");
+
+      ctx.strokeStyle = "#f5ce42";
+      ctx.setLineDash([6, 6]);
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      data.forEach((d, i) => {
+        const px = x(i), py = yPct(Number(d.pct_diff));
+        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      });
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      const xTickIndexes = [0, Math.floor((data.length - 1) / 2), data.length - 1];
+      ctx.fillStyle = "#607c9f";
+      ctx.font = "12px Source Sans 3";
+      xTickIndexes.forEach((idx) => {
+        if (idx < 0 || !data[idx]) return;
+        const label = String(data[idx].label).slice(11, 16);
+        ctx.fillText(label, x(idx) - 16, h - 8);
+      });
 
       // Hover indicator + labels
       if (chartHoverIndex >= 0 && chartHoverIndex < data.length) {
@@ -913,18 +1042,18 @@ function renderDashboardHtml() {
         const px = x(chartHoverIndex);
         const pyM = y(Number(row.mep));
         const pyC = y(Number(row.ccl));
-        ctx.strokeStyle = "rgba(15,23,42,.35)";
+        const pyP = yPct(Number(row.pct_diff));
+        ctx.strokeStyle = "rgba(173,197,230,.35)";
         ctx.lineWidth = 1;
-        ctx.beginPath(); ctx.moveTo(px, pad); ctx.lineTo(px, h - pad); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(px, padY); ctx.lineTo(px, h - padY); ctx.stroke();
 
-        ctx.fillStyle = "#0f7a36";
+        ctx.fillStyle = "#3fb4ff";
         ctx.beginPath(); ctx.arc(px, pyM, 4, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = "#1d4ed8";
+        ctx.fillStyle = "#ab83ff";
         ctx.beginPath(); ctx.arc(px, pyC, 4, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#f5ce42";
+        ctx.beginPath(); ctx.arc(px, pyP, 4, 0, Math.PI * 2); ctx.fill();
       }
-
-      ctx.fillStyle = "#0f7a36"; ctx.fillRect(pad, 8, 10, 10); ctx.fillStyle = "#111"; ctx.fillText("MEP", pad + 14, 17);
-      ctx.fillStyle = "#1d4ed8"; ctx.fillRect(pad + 60, 8, 10, 10); ctx.fillStyle = "#111"; ctx.fillText("CCL", pad + 74, 17);
     }
 
     function bindChartInteractions() {
@@ -957,7 +1086,7 @@ function renderDashboardHtml() {
         drawHistory(latestState?.history || []);
 
         const row = chartPoints[bestIdx];
-        tooltip.innerHTML = row.label + "<br>MEP: $" + Number(row.mep).toFixed(2) + "<br>CCL: $" + Number(row.ccl).toFixed(2);
+        tooltip.innerHTML = row.label + "<br>MEP $" + Number(row.mep).toFixed(2) + "<br>CCL $" + Number(row.ccl).toFixed(2) + "<br>Brecha " + Number(row.pct_diff).toFixed(2) + "%";
         tooltip.style.left = x + "px";
         tooltip.style.top = (ev.clientY - rect.top) + "px";
         tooltip.style.opacity = "1";
@@ -971,16 +1100,6 @@ function renderDashboardHtml() {
 
       window.addEventListener("resize", () => drawHistory(latestState?.history || []));
     }
-
-    document.querySelectorAll(".tab").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        document.querySelectorAll(".tab").forEach((x) => x.classList.remove("active"));
-        btn.classList.add("active");
-        const t = btn.getAttribute("data-tab");
-        document.getElementById("panel-overview").classList.toggle("active", t === "overview");
-        document.getElementById("panel-guide").classList.toggle("active", t === "guide");
-      });
-    });
 
     document.getElementById("notifyBtn").addEventListener("click", async () => {
       if (!("Notification" in window)) return;
