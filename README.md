@@ -8,7 +8,9 @@ Monitor web de dolar MEP y CCL con actualización automática en la nube, sin de
   - corre cron cada 5 minutos en horario de mercado ARG (10:30 a 17:59 ART, lunes a viernes),
   - consulta `https://www.dolarito.ar/cotizacion/dolar-hoy`,
   - calcula brecha absoluta y porcentual,
-  - guarda estado e historial en KV.
+  - guarda estado e historial en KV,
+  - refresca FCI (renta fija y variable) una vez por hora,
+  - refresca benchmarks una vez por día hábil (primer tick del mercado, 10:30 ART).
 - **KV (MONITOR_KV)**:
   - persiste historial y último estado entre ejecuciones.
 - **Dashboard web**:

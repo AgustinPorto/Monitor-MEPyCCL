@@ -183,14 +183,38 @@ export default {
   },
 
   async scheduled(event, env, ctx) {
-    ctx.waitUntil(Promise.allSettled([
-      runUpdate(env),
-      refreshFciRentaFijaData(env),
-      refreshFciRentaVariableData(env),
-      refreshBenchmarkData(env),
-    ]));
+    const tickDate = getScheduledDate(event);
+    const tasks = [runUpdate(env)];
+
+    // FCI: hourly during the 5-minute cron window.
+    if (shouldRefreshFciOnTick(tickDate)) {
+      tasks.push(refreshFciRentaFijaData(env), refreshFciRentaVariableData(env));
+    }
+
+    // Benchmarks: once per business day at first market tick (13:30 UTC / 10:30 ART).
+    if (shouldRefreshBenchmarkOnTick(tickDate)) {
+      tasks.push(refreshBenchmarkData(env));
+    }
+
+    ctx.waitUntil(Promise.allSettled(tasks));
   },
 };
+
+function getScheduledDate(event) {
+  const ms = Number(event?.scheduledTime);
+  if (Number.isFinite(ms) && ms > 0) return new Date(ms);
+  return new Date();
+}
+
+function shouldRefreshFciOnTick(date) {
+  return date.getUTCMinutes() === 30;
+}
+
+function shouldRefreshBenchmarkOnTick(date) {
+  const day = date.getUTCDay();
+  if (day === 0 || day === 6) return false;
+  return date.getUTCHours() === 13 && date.getUTCMinutes() === 30;
+}
 
 async function runUpdate(env) {
   const now = new Date();
