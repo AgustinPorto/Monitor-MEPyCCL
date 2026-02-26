@@ -27,6 +27,16 @@ En `wrangler.toml`:
 
 Equivale a 10:30-17:59 ART cada 5 minutos.
 
+## Frecuencias reales de actualización
+
+Dentro de esa ventana de cron (Lun-Vie 10:30-17:59 ART):
+
+- **MEP/CCL + estado principal**: cada **5 minutos**.
+- **FCI (renta fija y renta variable)**: cada **1 hora** (en el minuto `:30`).
+- **Benchmarks (plazo fijo e inflación)**: **1 vez por día hábil** (a las **10:30 ART**).
+
+Nota: el frontend puede consultar endpoints más seguido, pero los datos en KV se refrescan con estas frecuencias.
+
 ## Variables y seguridad
 
 No se usan credenciales en el frontend.
