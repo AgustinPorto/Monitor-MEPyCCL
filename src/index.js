@@ -81,8 +81,9 @@ export default {
 
     if (path === "/api/extras") {
       let extras = await loadExtras(env);
-      if (!extras) {
-        extras = await refreshMarketExtras(env, null, new Date());
+      const now = new Date();
+      if (!extras || !isUsableExtras(extras, now)) {
+        extras = await refreshMarketExtras(env, extras, now);
       }
       return jsonResponse(extras || buildEmptyExtras(new Date()), false);
     }
@@ -385,6 +386,16 @@ function hasNonEmptyData(value) {
   if (Array.isArray(value)) return value.length > 0;
   if (value && typeof value === "object") return Object.keys(value).length > 0;
   return false;
+}
+
+function isUsableExtras(extras, now = new Date()) {
+  if (!extras || typeof extras !== "object") return false;
+  const coreOk = hasNonEmptyData(extras.cauciones) && hasNonEmptyData(extras.bonos) && hasNonEmptyData(extras.letras);
+  if (!coreOk) return false;
+  const updatedAtMs = Date.parse(String(extras.updatedAtIso || ""));
+  if (!Number.isFinite(updatedAtMs)) return false;
+  const ageMs = now.getTime() - updatedAtMs;
+  return ageMs <= 20 * 60 * 1000;
 }
 
 function ensureExtrasHaveData(next, prev) {
