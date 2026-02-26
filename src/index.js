@@ -14,6 +14,8 @@ const ART_FORMATTER = new Intl.DateTimeFormat("en-GB", {
 const SOURCE_URL = "https://www.dolarito.ar/cotizacion/dolar-hoy";
 const STATE_KEY = "mep_ccl_state_v1";
 const HISTORY_KEY = "mep_ccl_history_v1";
+const SNAPSHOT_PREFIX = "mep_ccl_snapshot_";
+const UX_REDESIGN_DATE = "2026-02-26";
 const MAX_HISTORY_ITEMS = 500;
 const THRESHOLDS = {
   maxAbsDiffArs: 12,
@@ -55,6 +57,18 @@ export default {
         },
         false,
       );
+    }
+
+    if (path === "/api/snapshots") {
+      const snapshots = await listSnapshots(env, 60);
+      return jsonResponse({ count: snapshots.length, snapshots }, false);
+    }
+
+    if (path === "/api/recovery-check") {
+      const state = normalizeState(await loadState(env));
+      const history = state?.history?.length ? state.history : await loadHistory(env);
+      const snapshots = await listSnapshots(env, 365);
+      return jsonResponse(buildRecoveryCheck(history, snapshots), false);
     }
 
     if (path === "/favicon.ico") {
@@ -186,6 +200,7 @@ async function runUpdate(env) {
   await env.MONITOR_KV.put(STATE_KEY, JSON.stringify(next));
   if (Array.isArray(next.history) && next.history.length) {
     await saveHistory(env, next.history);
+    await saveDailySnapshot(env, next, now);
   }
   return next;
 }
@@ -215,6 +230,66 @@ async function loadHistory(env) {
 async function saveHistory(env, history) {
   const safe = Array.isArray(history) ? history.slice(-MAX_HISTORY_ITEMS) : [];
   await env.MONITOR_KV.put(HISTORY_KEY, JSON.stringify(safe));
+}
+
+function snapshotKeyForDate(date) {
+  const p = getArtParts(date);
+  return SNAPSHOT_PREFIX + `${p.year}-${pad2(p.month)}-${pad2(p.day)}`;
+}
+
+async function saveDailySnapshot(env, state, now) {
+  const key = snapshotKeyForDate(now);
+  const payload = {
+    dateArt: key.replace(SNAPSHOT_PREFIX, ""),
+    savedAtHumanArt: formatArtDate(now),
+    updatedAtHumanArt: state.updatedAtHumanArt,
+    current: state.current,
+    metrics24h: state.metrics24h,
+    historyCount: Array.isArray(state.history) ? state.history.length : 0,
+    history: Array.isArray(state.history) ? state.history.slice(-MAX_HISTORY_ITEMS) : [],
+  };
+  await env.MONITOR_KV.put(key, JSON.stringify(payload));
+}
+
+async function listSnapshots(env, limit = 30) {
+  const listed = await env.MONITOR_KV.list({ prefix: SNAPSHOT_PREFIX, limit });
+  const out = [];
+  for (const k of listed.keys || []) {
+    out.push({ key: k.name });
+  }
+  out.sort((a, b) => a.key.localeCompare(b.key));
+  return out;
+}
+
+function buildRecoveryCheck(history, snapshots) {
+  const entries = Array.isArray(history) ? history : [];
+  const epochs = entries.map((x) => Number(x.epoch)).filter((x) => Number.isFinite(x));
+  const oldestEpoch = epochs.length ? Math.min(...epochs) : null;
+  const newestEpoch = epochs.length ? Math.max(...epochs) : null;
+  const oldestIso = oldestEpoch ? new Date(oldestEpoch * 1000).toISOString() : null;
+  const newestIso = newestEpoch ? new Date(newestEpoch * 1000).toISOString() : null;
+  const oldestArt = oldestEpoch ? formatArtDate(new Date(oldestEpoch * 1000)) : null;
+  const newestArt = newestEpoch ? formatArtDate(new Date(newestEpoch * 1000)) : null;
+  const uxEpoch = Math.floor(new Date(`${UX_REDESIGN_DATE}T00:00:00Z`).getTime() / 1000);
+  const hasHistoryBeforeUx = Boolean(oldestEpoch && oldestEpoch < uxEpoch);
+  const hasSnapshotsBeforeUx = snapshots.some((s) => {
+    const d = String(s.key || "").replace(SNAPSHOT_PREFIX, "");
+    return d && d < UX_REDESIGN_DATE;
+  });
+  return {
+    uxRedesignDate: UX_REDESIGN_DATE,
+    historyCount: entries.length,
+    oldestHistoryIso: oldestIso,
+    oldestHistoryArt: oldestArt,
+    newestHistoryIso: newestIso,
+    newestHistoryArt: newestArt,
+    snapshotCount: snapshots.length,
+    firstSnapshotKey: snapshots[0]?.key || null,
+    lastSnapshotKey: snapshots[snapshots.length - 1]?.key || null,
+    hasHistoryBeforeUx,
+    hasSnapshotsBeforeUx,
+    recoverablePreUx: hasHistoryBeforeUx || hasSnapshotsBeforeUx,
+  };
 }
 
 function normalizeState(state) {
