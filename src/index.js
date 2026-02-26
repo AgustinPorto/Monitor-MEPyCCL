@@ -328,8 +328,119 @@ async function refreshMarketExtras(env, previousExtras, now) {
     }),
   );
 
+  // Fallback gratuito: si alguna API no responde, intentamos extraer del HTML público
+  // de dolarito.ar/cotizacion/dolar-hoy y guardamos lo último válido en KV.
+  const missing = targets
+    .map((t) => t.key)
+    .filter((k) => !next.sourceStatus[k]?.ok || !next[k]);
+  if (missing.length) {
+    try {
+      const html = await fetchSourceHtml(SOURCE_URL);
+      const embedded = extractEmbeddedSourceData(html);
+      if (missing.includes("cauciones") && embedded.cauciones) {
+        next.cauciones = embedded.cauciones;
+        next.sourceStatus.cauciones = { ok: true, error: null };
+      }
+      if (missing.includes("bonos") && embedded.bonos) {
+        next.bonos = embedded.bonos;
+        next.sourceStatus.bonos = { ok: true, error: null };
+      }
+      if (missing.includes("letras") && embedded.letras) {
+        next.letras = embedded.letras;
+        next.sourceStatus.letras = { ok: true, error: null };
+      }
+    } catch (error) {
+      // Conservamos el último dato válido previo.
+      console.log("[RadarMEP] extras fallback html error:", sanitizeError(error));
+    }
+  }
+
   await saveExtras(env, next);
   return next;
+}
+
+function extractEmbeddedSourceData(html) {
+  const out = { cauciones: null, bonos: null, letras: null };
+  if (typeof html !== "string" || !html.trim()) return out;
+
+  // 1) Intento directo con JSON embebido sin escapar.
+  out.cauciones = parseEmbeddedByKey(html, "cauciones");
+  out.bonos = parseEmbeddedByKey(html, "bonos");
+  out.letras = parseEmbeddedByKey(html, "letras");
+
+  // 2) Intento sobre JSON escapado (\"key\": ...)
+  if (!out.cauciones) out.cauciones = parseEmbeddedByKeyEscaped(html, "cauciones");
+  if (!out.bonos) out.bonos = parseEmbeddedByKeyEscaped(html, "bonos");
+  if (!out.letras) out.letras = parseEmbeddedByKeyEscaped(html, "letras");
+
+  return out;
+}
+
+function parseEmbeddedByKey(html, key) {
+  const objectRegex = new RegExp(`"${key}"\\s*:\\s*(\\{[\\s\\S]*?\\})`, "i");
+  const arrayRegex = new RegExp(`"${key}"\\s*:\\s*(\\[[\\s\\S]*?\\])`, "i");
+  const om = html.match(objectRegex);
+  if (om) {
+    const parsed = safeJsonParse(sliceBalancedJson(om[1], "{", "}"));
+    if (parsed) return parsed;
+  }
+  const am = html.match(arrayRegex);
+  if (am) {
+    const parsed = safeJsonParse(sliceBalancedJson(am[1], "[", "]"));
+    if (parsed) return parsed;
+  }
+  return null;
+}
+
+function parseEmbeddedByKeyEscaped(html, key) {
+  const objectRegex = new RegExp(`\\\\"${key}\\\\\"\\s*:\\s*(\\{[\\s\\S]*?\\})`, "i");
+  const arrayRegex = new RegExp(`\\\\"${key}\\\\\"\\s*:\\s*(\\[[\\s\\S]*?\\])`, "i");
+  const om = html.match(objectRegex);
+  if (om) {
+    const parsed = safeJsonParse(unescapeEscapedJson(sliceBalancedJson(om[1], "{", "}")));
+    if (parsed) return parsed;
+  }
+  const am = html.match(arrayRegex);
+  if (am) {
+    const parsed = safeJsonParse(unescapeEscapedJson(sliceBalancedJson(am[1], "[", "]")));
+    if (parsed) return parsed;
+  }
+  return null;
+}
+
+function safeJsonParse(value) {
+  if (typeof value !== "string") return null;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
+}
+
+function unescapeEscapedJson(value) {
+  if (typeof value !== "string") return value;
+  return value
+    .replace(/\\"/g, '"')
+    .replace(/\\\\/g, "\\");
+}
+
+function sliceBalancedJson(value, open, close) {
+  if (typeof value !== "string") return value;
+  let depth = 0;
+  let start = -1;
+  for (let i = 0; i < value.length; i++) {
+    const ch = value[i];
+    if (ch === open) {
+      if (start < 0) start = i;
+      depth++;
+    } else if (ch === close) {
+      depth--;
+      if (depth === 0 && start >= 0) {
+        return value.slice(start, i + 1);
+      }
+    }
+  }
+  return value;
 }
 
 function snapshotKeyForDate(date) {
