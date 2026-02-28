@@ -18,6 +18,39 @@ Monitor web de dolar MEP y CCL con actualización automática en la nube, sin de
   - consume `/api/data` cada 60 segundos,
   - muestra estado, métricas 24h, historial y gráfico.
 
+## Núcleo de dominio
+
+La lógica pura (sin `fetch` ni KV) vive en:
+
+- `src/domain/core.js`
+
+Incluye:
+
+- `calcSpreadAbs`
+- `calcSpreadPctRatio`
+- `toPercent`
+- `isSimilar`
+- `calcStalenessSeconds`
+- `isMarketOpen`
+
+## Contrato de porcentajes (unidades explícitas)
+
+- Interno (dominio): **ratio**
+  - `spreadPctRatio` donde `0.01 = 1%`.
+- Borde API/UI: **porcentaje humano**
+  - `spreadPctPercent` donde `1 = 1%`.
+- Compatibilidad pública:
+  - `pct_diff` se mantiene en porcentaje humano.
+  - internamente se calcula ratio y se convierte una sola vez en el borde.
+
+## Estados de confianza de datos
+
+- `OK`: `staleness <= 10 minutos`.
+- `DELAYED`: `10 minutos < staleness <= 60 minutos`.
+- `NO_DATA`: no existe snapshot válido.
+
+Cuando falla `fetch` o validación/parsing, el Worker intenta responder con el último snapshot válido en vez de romper la UI/API.
+
 ## Cron (UTC)
 
 En `wrangler.toml`:
@@ -97,8 +130,27 @@ El dashboard está en `/` y API en `/api/data`.
 ```bash
 npm install
 npm run check
+npm test
 npm run dev
 ```
+
+## Sincronización dashboard embed
+
+`dashboard_worker_source.html` es la fuente de verdad del dashboard.
+
+Antes de deploy, sincronizar embed en `src/index.js`:
+
+```bash
+npm run sync:dashboard
+```
+
+Verificación de drift:
+
+```bash
+npm run check:dashboard-embed
+```
+
+CI falla si el embed está fuera de sync.
 
 ## Seguridad automatizada
 

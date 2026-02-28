@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 jobs:
-  deploy:
+  quality:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -26,6 +26,58 @@ jobs:
 
       - name: Security check
         run: ./security_check.sh
+
+      - name: Lint (if present)
+        run: |
+          if node -e "const s=require('./package.json').scripts||{};process.exit(s.lint?0:1)"; then
+            npm run lint
+          else
+            echo "lint script not found; skipping"
+          fi
+
+      - name: Typecheck (if present)
+        run: |
+          if node -e "const s=require('./package.json').scripts||{};process.exit((s.typecheck||s['type-check'])?0:1)"; then
+            if node -e "const s=require('./package.json').scripts||{};process.exit(s.typecheck?0:1)"; then
+              npm run typecheck
+            else
+              npm run type-check
+            fi
+          else
+            echo "typecheck script not found; skipping"
+          fi
+
+      - name: Tests
+        run: npm test
+
+      - name: Syntax check
+        run: npm run check
+
+      - name: Build (if present)
+        run: |
+          if node -e "const s=require('./package.json').scripts||{};process.exit(s.build?0:1)"; then
+            npm run build
+          else
+            echo "build script not found; skipping"
+          fi
+
+      - name: Check dashboard embed sync
+        run: npm run check:dashboard-embed
+
+  deploy:
+    needs: quality
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
 
       - name: Validate required secrets
         run: |
