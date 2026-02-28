@@ -1,0 +1,2952 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Radar MEP/CCL · Mercado ARG</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════
+   TOKENS
+═══════════════════════════════════════════ */
+:root {
+  --bg:       #080b0e;
+  --surf:     #0f1318;
+  --surf2:    #161b22;
+  --surf3:    #1c2330;
+  --border:   #1e2530;
+  --borderB:  #2a3444;
+
+  --green:    #00e676;
+  --green-d:  rgba(0,230,118,.09);
+  --green-g:  rgba(0,230,118,.22);
+  --red:      #ff4757;
+  --red-d:    rgba(255,71,87,.09);
+  --yellow:   #ffc c00;
+  --yellow:   #ffcc00;
+  --yellow-d: rgba(255,204,0,.09);
+
+  --mep:      #29b6f6;
+  --ccl:      #b39ddb;
+  --text:     #dde4ee;
+  --muted:    #556070;
+  --muted2:   #7a8fa8;
+
+  --mono: 'Space Mono', monospace;
+  --sans: 'Syne', sans-serif;
+
+  --drawer-w: 400px;
+  --header-h: 54px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--mono);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image:
+    linear-gradient(rgba(41,182,246,.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(41,182,246,.025) 1px, transparent 1px);
+  background-size: 44px 44px;
+  pointer-events: none; z-index: 0;
+}
+
+/* ═══════════════════════════════════════════
+   LAYOUT SHELL
+═══════════════════════════════════════════ */
+.app {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* ═══════════════════════════════════════════
+   HEADER
+═══════════════════════════════════════════ */
+header {
+  position: sticky; top: 0; z-index: 200;
+  height: var(--header-h);
+  background: rgba(8,11,14,.93);
+  backdrop-filter: blur(18px);
+  border-bottom: 1px solid var(--border);
+  padding: 0 22px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+
+.logo {
+  font-family: var(--sans); font-weight: 800; font-size: 15px;
+  letter-spacing: .05em; display: flex; align-items: center; gap: 9px;
+}
+
+.live-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 8px var(--green);
+  animation: blink 2.2s ease-in-out infinite;
+}
+@keyframes blink {
+  0%,100%{opacity:1;box-shadow:0 0 8px var(--green);}
+  50%{opacity:.35;box-shadow:0 0 3px var(--green);}
+}
+
+.header-right { display: flex; align-items: center; gap: 12px; }
+
+.fresh-badge {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 11px; color: var(--muted2);
+  background: var(--surf2); border: 1px solid var(--border);
+  border-radius: 20px; padding: 3px 11px;
+}
+.fresh-dot { width:5px;height:5px;border-radius:50%;background:var(--green);animation:blink 2.2s ease-in-out infinite; }
+.fresh-badge.fetching { animation: badgePulse 1.2s ease-in-out infinite; }
+.fresh-badge.error { color:#ffd0d0; border-color:rgba(255,82,82,.45); background:rgba(255,82,82,.12); cursor:pointer; }
+@keyframes badgePulse {
+  0%,100% { opacity:1; }
+  50% { opacity:.65; }
+}
+
+.tag-mercado {
+  font-family: var(--sans); font-size:10px; font-weight:700;
+  letter-spacing:.08em; text-transform:uppercase;
+  background:var(--green); color:#000;
+  padding:3px 9px; border-radius:4px;
+}
+.tag-mercado.closed { background:var(--muted); color:#0a0c0f; }
+
+.btn {
+  font-family: var(--sans); font-size:11px; font-weight:700;
+  letter-spacing:.07em; text-transform:uppercase;
+  border-radius:6px; padding:6px 14px; cursor:pointer;
+  border:none; transition: all .18s; display:flex; align-items:center; gap:6px;
+}
+.btn-alert { background:var(--green); color:#000; }
+.btn-alert:hover { background:#00ff88; transform:translateY(-1px); }
+
+.btn-tasas {
+  background: var(--surf2);
+  border: 1px solid var(--borderB);
+  color: var(--text);
+}
+.btn-tasas:hover { background: var(--surf3); border-color: var(--muted2); }
+.btn-tasas.active {
+  background: var(--surf3);
+  border-color: var(--yellow);
+  color: var(--yellow);
+}
+
+/* ═══════════════════════════════════════════
+   MAIN + DRAWER LAYOUT
+═══════════════════════════════════════════ */
+.body-wrap {
+  flex: 1;
+  display: flex;
+  position: relative;
+  z-index: 1;
+  transition: none;
+}
+
+.main-content {
+  flex: 1;
+  max-width: 100%;
+  padding: 22px 22px 60px;
+  transition: margin-right .35s cubic-bezier(.4,0,.2,1);
+}
+
+.body-wrap.drawer-open .main-content {
+  margin-right: var(--drawer-w);
+}
+
+/* ═══════════════════════════════════════════
+   DRAWER
+═══════════════════════════════════════════ */
+.drawer {
+  position: fixed;
+  top: var(--header-h);
+  right: 0;
+  width: var(--drawer-w);
+  height: calc(100vh - var(--header-h));
+  background: var(--surf);
+  border-left: 1px solid var(--border);
+  transform: translateX(100%);
+  transition: transform .35s cubic-bezier(.4,0,.2,1);
+  overflow-y: auto;
+  z-index: 150;
+  display: flex; flex-direction: column;
+}
+
+.drawer.open { transform: translateX(0); }
+
+.drawer-resizer {
+  position: absolute;
+  left: -4px;
+  top: 0;
+  width: 8px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 180;
+}
+.drawer-resizer::before {
+  content: '';
+  position: absolute;
+  left: 3px;
+  top: 0;
+  width: 2px;
+  height: 100%;
+  background: transparent;
+  transition: background .15s;
+}
+.drawer-resizer:hover::before,
+.drawer-resizer.active::before {
+  background: var(--muted2);
+}
+
+.drawer-header {
+  position: sticky; top: 0;
+  background: var(--surf);
+  border-bottom: 1px solid var(--border);
+  padding: 16px 20px;
+  display: flex; align-items: center; justify-content: space-between;
+  z-index: 10;
+}
+
+.drawer-title {
+  font-family: var(--sans); font-weight: 800; font-size: 13px;
+  letter-spacing:.04em; color: var(--text);
+  display: flex; align-items:center; gap:8px;
+}
+
+.drawer-source {
+  font-size:10px; color:var(--muted); font-family:var(--mono);
+}
+
+.btn-close {
+  background:var(--surf2); border:1px solid var(--border);
+  color:var(--muted2); border-radius:6px; padding:5px 10px;
+  cursor:pointer; font-size:13px; transition: all .15s;
+}
+.btn-close:hover { color:var(--text); border-color:var(--muted2); }
+
+.drawer-body { padding: 16px 20px; display: flex; flex-direction: column; gap: 22px; }
+
+.context-box {
+  background: rgba(255,204,0,.06);
+  border: 1px solid rgba(255,204,0,.2);
+  border-radius: 9px;
+  padding: 13px 15px;
+  font-size: 11px;
+  line-height:1.65;
+  color:var(--muted2);
+}
+.context-box strong { color:var(--yellow); }
+
+.fci-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.fci-title {
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+.fci-title-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.fci-tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.fci-tab-btn {
+  background: var(--surf2);
+  border: 1px solid var(--borderB);
+  color: var(--muted2);
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+.fci-tab-btn.active {
+  color: var(--yellow);
+  border-color: var(--yellow);
+  background: rgba(255, 204, 0, .08);
+}
+.fci-meta {
+  font-size: 10px;
+  color: var(--muted);
+}
+.fci-table-wrap {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: auto;
+}
+.fci-table {
+  width: 100%;
+  min-width: 980px;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+.fci-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--surf2);
+  color: var(--muted2);
+  font-size: 10px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  text-align: left;
+  padding: 9px 10px;
+  border-bottom: 1px solid var(--border);
+}
+.fci-table thead th:hover {
+  z-index: 80;
+}
+.fci-table tbody tr {
+  border-bottom: 1px solid var(--border);
+}
+.fci-table tbody tr:last-child {
+  border-bottom: none;
+}
+.fci-table td {
+  font-size: 11px;
+  color: var(--text);
+  padding: 9px 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fci-table td.fci-signal-cell {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+}
+.fci-col-label {
+  padding-right: 10px;
+  display: inline-block;
+}
+.fci-col-resizer {
+  position: absolute;
+  top: 0;
+  right: -4px;
+  width: 8px;
+  height: 100%;
+  cursor: col-resize;
+  user-select: none;
+  touch-action: none;
+  z-index: 3;
+}
+.fci-col-resizer::after {
+  content: '';
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  left: 3px;
+  width: 1px;
+  background: rgba(122,143,168,.28);
+}
+.fci-col-resizer:hover::after,
+.fci-col-resizer.active::after {
+  background: rgba(122,143,168,.75);
+}
+.fci-empty {
+  font-size: 11px;
+  color: var(--muted2);
+  padding: 12px;
+  border: 1px dashed var(--borderB);
+  border-radius: 10px;
+}
+.fci-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.fci-search {
+  width: 100%;
+  background: var(--surf2);
+  border: 1px solid var(--borderB);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 11px;
+  outline: none;
+}
+.fci-search:focus {
+  border-color: var(--muted2);
+}
+.fci-pagination {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.fci-page-btn {
+  background: var(--surf2);
+  border: 1px solid var(--borderB);
+  color: var(--text);
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  padding: 5px 8px;
+  cursor: pointer;
+}
+.fci-page-btn:disabled {
+  opacity: .4;
+  cursor: default;
+}
+.fci-page-info {
+  font-size: 10px;
+  color: var(--muted2);
+}
+.fci-bench {
+  font-size: 10px;
+  color: var(--muted2);
+  padding: 6px 2px 0;
+}
+.fci-bench strong {
+  color: var(--text);
+}
+.fci-trend {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.fci-trend-icon {
+  font-size: 10px;
+  font-weight: 700;
+}
+.fci-trend.up .fci-trend-icon { color: var(--green); }
+.fci-trend.down .fci-trend-icon { color: var(--red); }
+.fci-trend.flat .fci-trend-icon { color: var(--muted2); }
+.fci-trend.na .fci-trend-icon { color: var(--muted); }
+.fci-signal {
+  display: inline-block;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+}
+.fci-signal.good {
+  color: var(--green);
+  background: var(--green-d);
+  border: 1px solid rgba(0,230,118,.25);
+}
+.fci-signal.warn {
+  color: var(--yellow);
+  background: rgba(255,204,0,.10);
+  border: 1px solid rgba(255,204,0,.25);
+}
+.fci-signal.ojo {
+  color: #ffb86b;
+  background: rgba(255, 140, 0, .14);
+  border: 1px solid rgba(255, 162, 78, .30);
+}
+.fci-signal.info {
+  color: #7bc6ff;
+  background: rgba(41,182,246,.12);
+  border: 1px solid rgba(41,182,246,.3);
+}
+.fci-signal.bad {
+  color: #ff7f8a;
+  background: var(--red-d);
+  border: 1px solid rgba(255,71,87,.25);
+}
+.fci-signal.na {
+  color: var(--muted2);
+  background: rgba(122,143,168,.10);
+  border: 1px solid rgba(122,143,168,.25);
+}
+.fci-signal-wrap {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+}
+.fci-signal-streak {
+  font-size: 9px;
+  color: var(--muted2);
+  letter-spacing: .02em;
+  line-height: 1.25;
+}
+
+/* ═══════════════════════════════════════════
+   STATUS BANNER
+═══════════════════════════════════════════ */
+.status-banner {
+  border-radius:11px; padding:18px 24px; margin-bottom:20px;
+  border:1px solid; display:flex; align-items:center;
+  justify-content:space-between;
+  animation:fadeIn .4s ease;
+  overflow:hidden; position:relative;
+}
+.status-banner.similar {
+  background:var(--green-d); border-color:rgba(0,230,118,.28);
+}
+.status-banner.similar::after {
+  content:''; position:absolute; right:-50px; top:50%;
+  transform:translateY(-50%); width:200px; height:200px;
+  border-radius:50%;
+  background:radial-gradient(circle,var(--green-g) 0%,transparent 70%);
+  pointer-events:none;
+}
+.status-banner.no-similar {
+  background: rgba(255,82,82,.08);
+  border-color: rgba(255,82,82,.35);
+}
+.status-banner.no-similar::after {
+  content:'';
+  position:absolute;
+  right:-50px;
+  top:50%;
+  transform:translateY(-50%);
+  width:200px;
+  height:200px;
+  border-radius:50%;
+  background:radial-gradient(circle,rgba(255,82,82,.18) 0%,transparent 70%);
+  pointer-events:none;
+}
+
+.s-left {}
+.s-title {
+  font-family:var(--sans); font-weight:800; font-size:26px;
+  letter-spacing:-.02em; display:flex; align-items:center; gap:12px;
+}
+.s-badge {
+  font-size:10px; font-weight:700; letter-spacing:.1em;
+  text-transform:uppercase; padding:2px 9px; border-radius:4px;
+  background:var(--green); color:#000; align-self:center;
+}
+.s-badge.nosim { background: var(--red); color: #fff; }
+.s-sub { font-size:11px; color:var(--muted2); margin-top:4px; }
+
+.error-banner {
+  display:none;
+  margin: 0 0 14px 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,82,82,.45);
+  background: rgba(255,82,82,.12);
+  color: #ffd0d0;
+  font-size: 11px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.error-banner.show { display:flex; }
+.error-banner button {
+  border:1px solid rgba(255,82,82,.5);
+  background: rgba(255,82,82,.15);
+  color:#ffdede;
+  border-radius:6px;
+  padding:4px 10px;
+  font-size:10px;
+  font-weight:700;
+  text-transform:uppercase;
+  letter-spacing:.06em;
+  cursor:pointer;
+}
+
+.skeleton {
+  background: linear-gradient(90deg, #1c2330 25%, #2a3444 50%, #1c2330 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+  border-radius: 4px;
+  color: transparent;
+  user-select: none;
+}
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.value-changed {
+  animation: flashValue 600ms ease;
+}
+@keyframes flashValue {
+  0%   { color: #ffcc00; }
+  100% { color: inherit; }
+}
+
+.s-right { text-align:right; font-size:11px; color:var(--muted); line-height:1.9; }
+.s-right strong { color:var(--muted2); }
+
+/* ═══════════════════════════════════════════
+   HERO CARDS
+═══════════════════════════════════════════ */
+.hero-grid {
+  display:grid; grid-template-columns:1fr 1fr 1fr;
+  gap:14px; margin-bottom:20px;
+}
+
+.hcard {
+  background:var(--surf); border:1px solid var(--border);
+  border-radius:11px; padding:20px 22px;
+  position:relative; overflow:hidden;
+  transition:border-color .18s;
+  animation: fadeUp .5s ease both;
+}
+.hcard:nth-child(1){animation-delay:.08s;}
+.hcard:nth-child(2){animation-delay:.16s;}
+.hcard:nth-child(3){animation-delay:.24s;}
+.hcard:hover { border-color:var(--borderB); }
+
+.hcard .bar { position:absolute; top:0;left:0;right:0; height:2px; }
+.hcard.mep .bar { background:var(--mep); }
+.hcard.ccl .bar { background:var(--ccl); }
+.hcard.gap .bar { background:var(--yellow); }
+
+.hcard-label {
+  font-family:var(--sans); font-size:10px; font-weight:700;
+  letter-spacing:.12em; text-transform:uppercase; color:var(--muted);
+  margin-bottom:9px; display:flex; align-items:center; gap:5px;
+}
+.hcard-label .dot { width:5px;height:5px;border-radius:50%; }
+.mep .dot{background:var(--mep);}
+.ccl .dot{background:var(--ccl);}
+.gap .dot{background:var(--yellow);}
+
+.hcard-val {
+  font-size:34px; font-weight:700; letter-spacing:-.02em; line-height:1;
+}
+.mep .hcard-val{color:var(--mep);}
+.ccl .hcard-val{color:var(--ccl);}
+
+.hcard-pct { font-size:20px; color:var(--yellow); font-weight:700; margin-top:3px; }
+.hcard-delta {
+  font-size:10px;
+  color:var(--muted2);
+  margin-top:5px;
+  font-family:var(--mono);
+}
+.hcard-delta.up { color:#ff6f7f; }
+.hcard-delta.down { color:var(--green); }
+.hcard-sub { font-size:10px; color:var(--muted); margin-top:7px; }
+
+/* tooltip */
+.tip { position:relative; cursor:help; }
+.tip::after {
+  content:attr(data-t);
+  position:absolute; bottom:calc(100% + 7px); left:50%;
+  transform:translateX(-50%);
+  background:#1a2232; border:1px solid var(--borderB);
+  color:var(--text); font-size:10px; padding:5px 9px;
+  border-radius:6px; white-space:nowrap;
+  opacity:0; pointer-events:none; transition:opacity .18s; z-index:99;
+}
+.tip:hover::after{opacity:1;}
+.tip.tip-down::after {
+  display: none;
+}
+
+.smart-tip {
+  position: fixed;
+  left: 0;
+  top: 0;
+  max-width: min(280px, calc(100vw - 16px));
+  background: #1a2232;
+  border: 1px solid var(--borderB);
+  color: var(--text);
+  font-size: 10px;
+  line-height: 1.45;
+  padding: 6px 9px;
+  border-radius: 6px;
+  z-index: 400;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .12s;
+}
+.smart-tip.show {
+  opacity: 1;
+}
+
+/* ═══════════════════════════════════════════
+   CHART
+═══════════════════════════════════════════ */
+.chart-card {
+  background:var(--surf); border:1px solid var(--border);
+  border-radius:11px; padding:22px; margin-bottom:20px;
+  animation:fadeUp .5s .32s ease both;
+}
+.chart-top {
+  display:flex; align-items:center; justify-content:space-between;
+  margin-bottom:16px;
+}
+.chart-ttl { font-family:var(--sans); font-weight:700; font-size:13px; }
+
+.pills { display:flex; gap:5px; }
+.pill {
+  font-size:10px; padding:3px 11px; border-radius:20px;
+  border:1px solid var(--borderB); color:var(--muted2);
+  background:transparent; cursor:pointer; font-family:var(--mono);
+  transition:all .13s;
+}
+.pill.on { background:var(--mep); border-color:var(--mep); color:#000; font-weight:700; }
+
+.legends { display:flex; gap:18px; margin-bottom:14px; font-size:10px; color:var(--muted2); }
+.leg { display:flex; align-items:center; gap:5px; }
+.leg-line { width:18px; height:2px; border-radius:2px; }
+
+svg.chart { width:100%; height:170px; overflow:visible; }
+.trend-hint {
+  margin-top:8px;
+  font-size:10px;
+  color:var(--muted);
+  font-style:italic;
+}
+
+/* ═══════════════════════════════════════════
+   METRICS
+═══════════════════════════════════════════ */
+.metrics-grid {
+  display:grid; grid-template-columns:repeat(4,1fr);
+  gap:12px; margin-bottom:20px;
+}
+.mcard {
+  background:var(--surf2); border:1px solid var(--border);
+  border-radius:9px; padding:14px 16px;
+  animation:fadeUp .5s ease both;
+}
+.mcard:nth-child(1){animation-delay:.38s;}
+.mcard:nth-child(2){animation-delay:.43s;}
+.mcard:nth-child(3){animation-delay:.48s;}
+.mcard:nth-child(4){animation-delay:.53s;}
+.mcard-label {
+  font-family:var(--sans); font-size:9px; font-weight:700;
+  letter-spacing:.1em; text-transform:uppercase; color:var(--muted); margin-bottom:7px;
+}
+.mcard-val { font-size:20px; font-weight:700; }
+.mcard-sub { font-size:9px; color:var(--muted); margin-top:3px; }
+
+/* ═══════════════════════════════════════════
+   TABLE
+═══════════════════════════════════════════ */
+.table-card {
+  background:var(--surf); border:1px solid var(--border);
+  border-radius:11px; overflow:hidden;
+  animation:fadeUp .5s .56s ease both;
+}
+.table-top {
+  padding:14px 22px; border-bottom:1px solid var(--border);
+  display:flex; align-items:center; justify-content:space-between;
+}
+.table-ttl { font-family:var(--sans); font-weight:700; font-size:13px; }
+.table-right { display:flex; align-items:center; gap:10px; }
+.table-cap { font-size:10px; color:var(--muted); }
+.btn-download {
+  display:inline-flex; align-items:center; gap:6px;
+  height:26px; padding:0 10px; border-radius:7px;
+  border:1px solid #2f4f68; background:rgba(41,182,246,0.06);
+  color:#8fd8ff; cursor:pointer; font-family:var(--mono); font-size:10px;
+  letter-spacing:.02em;
+  transition:border-color .15s ease, background .15s ease, color .15s ease, box-shadow .15s ease;
+}
+.btn-download svg {
+  width:12px; height:12px; stroke:currentColor; fill:none; stroke-width:1.8;
+}
+.btn-download:hover {
+  border-color:#4fc3f7; background:rgba(41,182,246,0.16);
+  color:#c6ecff; box-shadow:0 0 0 1px rgba(79,195,247,.18) inset;
+}
+
+.history-table-wrap { overflow-x:auto; }
+.history-table-wrap table {
+  min-width: 860px;
+}
+table { width:100%; border-collapse:collapse; table-layout:fixed; }
+thead th {
+  font-size:9px; letter-spacing:.1em; text-transform:uppercase;
+  color:var(--muted); padding:9px 22px; text-align:left;
+  background:var(--surf2); font-family:var(--sans); font-weight:600;
+  position:relative;
+}
+tbody tr { border-bottom:1px solid var(--border); transition:background .12s; }
+tbody tr:hover { background:rgba(41,182,246,.04); }
+tbody tr:last-child { border-bottom:none; }
+tbody td {
+  padding:11px 22px; font-size:12px;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+td.dim { color:var(--muted2); font-size:11px; }
+td.dim .ts-day { font-size:9px; color:var(--muted); line-height:1.1; }
+td.dim .ts-hour { font-size:11px; color:var(--muted2); line-height:1.2; margin-top:2px; }
+.col-label { padding-right:10px; display:inline-block; }
+.col-resizer {
+  position:absolute;
+  top:0;
+  right:-4px;
+  width:8px;
+  height:100%;
+  cursor:col-resize;
+  user-select:none;
+  touch-action:none;
+  z-index:2;
+}
+.col-resizer::after {
+  content:'';
+  position:absolute;
+  top:6px;
+  bottom:6px;
+  left:3px;
+  width:1px;
+  background:rgba(122,143,168,.28);
+}
+.col-resizer:hover::after,
+.col-resizer.active::after {
+  background:rgba(122,143,168,.75);
+}
+
+.sbadge {
+  display:inline-block; font-size:9px; font-weight:700;
+  letter-spacing:.08em; padding:2px 7px; border-radius:4px;
+  text-transform:uppercase;
+}
+.sbadge.sim { background:var(--green-d); color:var(--green); border:1px solid rgba(0,230,118,.2); }
+.sbadge.nosim { background:var(--red-d); color:var(--red); border:1px solid rgba(255,71,87,.2); }
+
+/* ═══════════════════════════════════════════
+   FOOTER / GLOSARIO
+═══════════════════════════════════════════ */
+.glosario {
+  margin-top:20px; border:1px solid var(--border);
+  border-radius:11px; overflow:hidden;
+  animation:fadeUp .5s .6s ease both;
+}
+.glos-btn {
+  width:100%; background:var(--surf); border:none;
+  color:var(--muted2); font-family:var(--mono); font-size:11px;
+  padding:13px 22px; text-align:left; cursor:pointer;
+  display:flex; align-items:center; justify-content:space-between;
+  transition:color .15s;
+}
+.glos-btn:hover { color:var(--text); }
+
+.glos-grid {
+  display:none; grid-template-columns:1fr 1fr;
+  background:var(--surf2); border-top:1px solid var(--border);
+}
+.glos-grid.open { display:grid; }
+
+.gi {
+  padding:14px 22px; border-bottom:1px solid var(--border);
+  border-right:1px solid var(--border);
+}
+.gi:nth-child(even){border-right:none;}
+.gi-term {
+  font-family:var(--sans); font-size:10px; font-weight:700;
+  letter-spacing:.08em; text-transform:uppercase; color:var(--muted2); margin-bottom:3px;
+}
+.gi-def { font-size:11px; color:var(--muted); line-height:1.5; }
+
+footer {
+  text-align:center; padding:22px; font-size:10px; color:var(--muted);
+  border-top:1px solid var(--border);
+}
+footer a { color:var(--muted2); text-decoration:none; }
+footer a:hover { color:var(--text); }
+
+/* ═══════════════════════════════════════════
+   ANIMATIONS
+═══════════════════════════════════════════ */
+@keyframes fadeIn { from{opacity:0;}to{opacity:1;} }
+@keyframes fadeUp { from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);} }
+
+/* ═══════════════════════════════════════════
+   RESPONSIVE
+═══════════════════════════════════════════ */
+@media(max-width:900px){
+  :root{ --drawer-w: 100vw; }
+  .body-wrap.drawer-open .main-content { margin-right:0; }
+  .drawer { width:100vw; }
+  .drawer-resizer { display:none; }
+}
+@media(max-width:700px){
+  .hero-grid{ grid-template-columns:1fr 1fr; }
+  .hcard.gap{ grid-column:span 2; }
+  .metrics-grid{ grid-template-columns:1fr 1fr; }
+  .hcard-val{ font-size:26px; }
+  .pills{ flex-wrap:wrap; }
+  .table-right { gap:8px; }
+  .btn-download { padding:0 8px; }
+  thead th:nth-child(4), tbody td:nth-child(4){ display:none; }
+  .s-right { display:none; }
+  td.dim .ts-day { font-size:8px; }
+  td.dim .ts-hour { font-size:10px; }
+}
+@media(max-width:480px){
+  .hero-grid{ grid-template-columns:1fr; }
+  .hcard.gap{ grid-column:span 1; }
+  header{ padding:0 14px; }
+  .tag-mercado{ display:none; }
+  .btn-tasas span.label-long { display:none; }
+}
+
+/* DRAWER OVERLAY (mobile) */
+.overlay {
+  display:none;
+  position:fixed; inset:0; z-index:140;
+  background:rgba(0,0,0,.55);
+  backdrop-filter:blur(2px);
+}
+@media(max-width:900px){
+  .overlay.show { display:block; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- ── HEADER ── -->
+<header>
+  <div class="logo">
+    <span class="live-dot"></span>
+    RADAR MEP/CCL
+  </div>
+  <div class="header-right">
+    <div class="fresh-badge" id="fresh-badge">
+      <span class="fresh-dot"></span>
+      <span id="fresh-badge-text">Actualizando…</span>
+    </div>
+    <span class="tag-mercado closed" id="tag-mercado">Mercado cerrado</span>
+    <button class="btn btn-tasas" id="btnTasas" onclick="toggleDrawer()">
+      📊 <span class="label-long">Fondos Comunes de Inversión</span>
+    </button>
+    <button class="btn btn-alert">🔔 Alertas</button>
+  </div>
+</header>
+
+<!-- ── OVERLAY (mobile) ── -->
+<div class="overlay" id="overlay" onclick="toggleDrawer()"></div>
+
+<!-- ── BODY WRAP ── -->
+<div class="body-wrap" id="bodyWrap">
+
+  <!-- ════ MAIN ════ -->
+  <div class="main-content">
+
+    <!-- STATUS BANNER -->
+    <div class="status-banner similar" id="status-banner">
+      <div class="s-left">
+        <div class="s-title">
+          <span id="status-label">MEP ≈ CCL</span>
+          <span class="s-badge" id="status-badge">Similar</span>
+        </div>
+        <div class="s-sub">La brecha está dentro del umbral — los precios son comparables</div>
+      </div>
+      <div class="s-right">
+        <div>Última corrida: <strong id="last-run-time">—</strong></div>
+        <div id="countdown-text">Próxima actualización en 5:00</div>
+        <div>Cron GMT-3 · Lun–Vie 10:30–18:00</div>
+      </div>
+    </div>
+    <div class="error-banner" id="error-banner">
+      <span id="error-banner-text">Error al actualizar · Reintentar</span>
+      <button id="error-retry-btn" type="button">Reintentar</button>
+    </div>
+
+    <!-- HERO CARDS -->
+    <div class="hero-grid">
+      <div class="hcard mep">
+        <div class="bar"></div>
+        <div class="hcard-label">
+          <span class="dot"></span>
+          <span class="tip" data-t="Dólar Bolsa — compra/venta de bonos en $ARS y USD">MEP venta ⓘ</span>
+        </div>
+        <div class="hcard-val" id="mep-val">$1.264</div>
+        <div class="hcard-sub">dolarito.ar · venta</div>
+      </div>
+      <div class="hcard ccl">
+        <div class="bar"></div>
+        <div class="hcard-label">
+          <span class="dot"></span>
+          <span class="tip" data-t="Contado con Liquidación — similar al MEP con giro al exterior">CCL venta ⓘ</span>
+        </div>
+        <div class="hcard-val" id="ccl-val">$1.271</div>
+        <div class="hcard-sub">dolarito.ar · venta</div>
+      </div>
+      <div class="hcard gap">
+        <div class="bar"></div>
+        <div class="hcard-label">
+          <span class="dot"></span>
+          <span class="tip" data-t="Brecha relativa contra el promedio entre MEP y CCL">Brecha ⓘ</span>
+        </div>
+        <div class="hcard-val" id="brecha-abs">$7</div>
+        <div class="hcard-pct" id="brecha-pct">0.55%</div>
+        <div class="hcard-delta" id="brecha-hourly-delta">vs hace 1h —</div>
+        <div class="hcard-sub">diferencia absoluta · porcentual</div>
+      </div>
+    </div>
+
+    <!-- CHART -->
+    <div class="chart-card">
+      <div class="chart-top">
+        <div class="chart-ttl" id="trend-title">Tendencia MEP/CCL — 1 día</div>
+        <div class="pills">
+          <button class="pill on" data-filter="1d">1 Día</button>
+          <button class="pill" data-filter="1w">1 Semana</button>
+          <button class="pill" data-filter="1m">1 Mes</button>
+        </div>
+      </div>
+      <div class="legends">
+        <div class="leg"><div class="leg-line" style="background:var(--mep)"></div>MEP</div>
+        <div class="leg"><div class="leg-line" style="background:var(--ccl)"></div>CCL</div>
+        <div class="leg"><div class="leg-line" style="background:var(--yellow)"></div>Brecha (hover)</div>
+      </div>
+      <svg class="chart" id="trend-chart" viewBox="0 0 860 160" preserveAspectRatio="none">
+        <line x1="0" y1="40" x2="860" y2="40" stroke="#1e2530" stroke-width="1"/>
+        <line x1="0" y1="80" x2="860" y2="80" stroke="#1e2530" stroke-width="1"/>
+        <line x1="0" y1="120" x2="860" y2="120" stroke="#1e2530" stroke-width="1"/>
+        <text id="trend-y-top" x="2" y="37" fill="#475569" font-size="8" font-family="Space Mono">—</text>
+        <text id="trend-y-mid" x="2" y="77" fill="#475569" font-size="8" font-family="Space Mono">—</text>
+        <text id="trend-y-low" x="2" y="117" fill="#475569" font-size="8" font-family="Space Mono">—</text>
+        <polyline id="trend-mep-line" points="" fill="none" stroke="#29b6f6" stroke-width="2" stroke-linejoin="round"/>
+        <polyline id="trend-ccl-line" points="" fill="none" stroke="#b39ddb" stroke-width="2" stroke-linejoin="round"/>
+        <line id="trend-hover-line" x1="0" y1="18" x2="0" y2="132" stroke="#2a3444" stroke-width="1" opacity="0"/>
+        <circle id="trend-hover-mep" cx="0" cy="0" r="3.5" fill="#29b6f6" opacity="0"/>
+        <circle id="trend-hover-ccl" cx="0" cy="0" r="3.5" fill="#b39ddb" opacity="0"/>
+        <g id="trend-tooltip" opacity="0">
+          <rect id="trend-tooltip-bg" x="0" y="0" width="188" height="56" rx="6" fill="#161b22" stroke="#2a3444"/>
+          <text id="trend-tip-time" x="10" y="14" fill="#556070" font-size="8" font-family="Space Mono">—</text>
+          <text id="trend-tip-mep" x="10" y="28" fill="#29b6f6" font-size="9" font-family="Space Mono">MEP —</text>
+          <text id="trend-tip-ccl" x="10" y="40" fill="#b39ddb" font-size="9" font-family="Space Mono">CCL —</text>
+          <text id="trend-tip-gap" x="10" y="52" fill="#ffcc00" font-size="8" font-family="Space Mono">Brecha —</text>
+        </g>
+        <text id="trend-x-1" x="28" y="154" fill="#475569" font-size="7" font-family="Space Mono">—</text>
+        <text id="trend-x-2" x="218" y="154" fill="#475569" font-size="7" font-family="Space Mono">—</text>
+        <text id="trend-x-3" x="418" y="154" fill="#475569" font-size="7" font-family="Space Mono">—</text>
+        <text id="trend-x-4" x="608" y="154" fill="#475569" font-size="7" font-family="Space Mono">—</text>
+        <text id="trend-x-5" x="798" y="154" fill="#475569" font-size="7" font-family="Space Mono">—</text>
+      </svg>
+      <div class="trend-hint">Pasá el cursor por el gráfico para ver MEP, CCL y brecha en cada momento.</div>
+    </div>
+
+    <!-- METRICS -->
+    <div class="metrics-grid">
+      <div class="mcard">
+        <div class="mcard-label" id="metric-count-label">Muestras 1 día</div>
+        <div class="mcard-val" id="metric-count-24h">—</div>
+        <div class="mcard-sub" id="metric-count-sub">registros del período filtrado</div>
+      </div>
+      <div class="mcard">
+        <div class="mcard-label" id="metric-similar-label">Veces similar</div>
+        <div class="mcard-val" style="color:var(--green)" id="metric-similar-24h">—</div>
+        <div class="mcard-sub" id="metric-similar-sub">momentos en zona ≤1% o ≤$10</div>
+      </div>
+      <div class="mcard">
+        <div class="mcard-label" id="metric-min-label">Brecha mín.</div>
+        <div class="mcard-val" id="metric-min-24h">—</div>
+        <div class="mcard-sub" id="metric-min-sub">mínima del período filtrado</div>
+      </div>
+      <div class="mcard">
+        <div class="mcard-label" id="metric-max-label">Brecha máx.</div>
+        <div class="mcard-val" style="color:var(--yellow)" id="metric-max-24h">—</div>
+        <div class="mcard-sub" id="metric-max-sub">máxima del período filtrado</div>
+      </div>
+    </div>
+
+    <!-- TABLE -->
+    <div class="table-card">
+      <div class="table-top">
+        <div class="table-ttl">Historial de registros</div>
+        <div class="table-right">
+          <div class="table-cap" id="history-cap">Últimas — muestras</div>
+          <button class="btn-download" id="btn-download-csv" type="button" aria-label="Descargar CSV">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 4v10"></path>
+              <path d="M8 10l4 4 4-4"></path>
+              <path d="M5 19h14"></path>
+            </svg>
+            Descargar CSV
+          </button>
+        </div>
+      </div>
+      <div class="history-table-wrap">
+      <table id="history-table">
+        <colgroup id="history-colgroup">
+          <col data-col-index="0">
+          <col data-col-index="1">
+          <col data-col-index="2">
+          <col data-col-index="3">
+          <col data-col-index="4">
+          <col data-col-index="5">
+        </colgroup>
+        <thead>
+          <tr>
+            <th><span class="col-label">Día / Hora</span><span class="col-resizer" data-col-index="0" role="separator" aria-label="Ajustar ancho de Día / Hora"></span></th>
+            <th><span class="col-label">MEP</span><span class="col-resizer" data-col-index="1" role="separator" aria-label="Ajustar ancho de MEP"></span></th>
+            <th><span class="col-label">CCL</span><span class="col-resizer" data-col-index="2" role="separator" aria-label="Ajustar ancho de CCL"></span></th>
+            <th><span class="col-label">Dif $</span><span class="col-resizer" data-col-index="3" role="separator" aria-label="Ajustar ancho de Dif $"></span></th>
+            <th><span class="col-label">Dif %</span><span class="col-resizer" data-col-index="4" role="separator" aria-label="Ajustar ancho de Dif %"></span></th>
+            <th><span class="col-label">Estado</span><span class="col-resizer" data-col-index="5" role="separator" aria-label="Ajustar ancho de Estado"></span></th>
+          </tr>
+        </thead>
+        <tbody id="history-rows"></tbody>
+      </table>
+      </div>
+    </div>
+
+    <!-- GLOSARIO -->
+    <div class="glosario">
+      <button class="glos-btn" onclick="toggleGlos(this)">
+        <span>📖 Glosario de términos</span>
+        <span id="glosArrow">▾</span>
+      </button>
+      <div class="glos-grid" id="glosGrid">
+        <div class="gi"><div class="gi-term">MEP venta</div><div class="gi-def">Precio de venta del dólar MEP (Mercado Electrónico de Pagos) vía compra/venta de bonos en $ARS y USD.</div></div>
+        <div class="gi"><div class="gi-term">CCL venta</div><div class="gi-def">Contado con Liquidación — similar al MEP pero permite transferir fondos al exterior. Suele cotizar levemente por encima.</div></div>
+        <div class="gi"><div class="gi-term">Diferencia %</div><div class="gi-def">Brecha relativa calculada contra el promedio entre MEP y CCL. Umbral SIMILAR: ≤ 1% o ≤ $10 ARS.</div></div>
+        <div class="gi"><div class="gi-term">Frescura del dato</div><div class="gi-def">Tiempo desde el último timestamp de dolarito.ar. El cron corre cada 5 min en días hábiles.</div></div>
+        <div class="gi"><div class="gi-term">Estado SIMILAR</div><div class="gi-def">Cuando MEP y CCL están dentro del umbral — momento ideal para operar buscando paridad entre ambos tipos.</div></div>
+        <div class="gi"><div class="gi-term">Mercado ARG</div><div class="gi-def">Ventana operativa: lunes a viernes de 10:30 a 17:59 (GMT-3, Buenos Aires).</div></div>
+      </div>
+    </div>
+
+    <footer>
+      Fuente: <a href="#">dolarito.ar</a> · <a href="#">argentinadatos.com</a> · Datos cada 5 min en días hábiles · <a href="#">Reportar problema</a>
+    </footer>
+
+  </div><!-- /main-content -->
+
+  <!-- ════ DRAWER ════ -->
+  <div class="drawer" id="drawer">
+    <div class="drawer-resizer" id="drawer-resizer" aria-hidden="true"></div>
+
+    <div class="drawer-header">
+      <div>
+        <div class="drawer-title">📊 Fondos Comunes de Inversión</div>
+        <div class="drawer-source">Fuentes: argentinadatos.com</div>
+      </div>
+      <button class="btn-close" onclick="toggleDrawer()">✕</button>
+    </div>
+
+    <div class="drawer-body">
+      <div class="fci-header">
+        <div class="fci-title-wrap">
+          <div class="fci-title" id="fci-title">Renta fija (FCI Argentina)</div>
+          <div class="fci-tabs">
+            <button id="fci-tab-fija" class="fci-tab-btn active" type="button">Renta fija</button>
+            <button id="fci-tab-variable" class="fci-tab-btn" type="button">Renta variable</button>
+          </div>
+        </div>
+        <div class="fci-meta" id="fci-last-date">Fecha: —</div>
+      </div>
+      <div class="fci-controls">
+        <input id="fci-search" class="fci-search" type="text" placeholder="Buscar fondo..." />
+        <div class="fci-pagination">
+          <button id="fci-prev" class="fci-page-btn" type="button">◀</button>
+          <div id="fci-page-info" class="fci-page-info">1 / 1</div>
+          <button id="fci-next" class="fci-page-btn" type="button">▶</button>
+        </div>
+      </div>
+      <div class="fci-table-wrap">
+        <table class="fci-table">
+          <colgroup id="fci-colgroup">
+            <col style="width:280px">
+            <col style="width:150px">
+            <col style="width:190px">
+            <col style="width:190px">
+            <col style="width:120px">
+            <col style="width:160px">
+          </colgroup>
+          <thead>
+            <tr>
+              <th><span class="fci-col-label"><span class="tip tip-down" data-t="Nombre del Fondo Común de Inversión.">Fondo ⓘ</span></span><span class="fci-col-resizer" data-fci-col-index="0" role="separator" aria-label="Ajustar ancho de Fondo"></span></th>
+              <th><span class="fci-col-label"><span class="tip tip-down" data-t="VCP — Valor Cuotaparte. Precio unitario de cada cuotaparte. Usalo para comparar rendimiento entre fechas.">VCP ⓘ</span></span><span class="fci-col-resizer" data-fci-col-index="1" role="separator" aria-label="Ajustar ancho de VCP"></span></th>
+              <th><span class="fci-col-label"><span class="tip tip-down" data-t="CCP — Cantidad de Cuotapartes. Total de cuotapartes emitidas. Sube cuando entran inversores, baja cuando rescatan.">CCP ⓘ</span></span><span class="fci-col-resizer" data-fci-col-index="2" role="separator" aria-label="Ajustar ancho de CCP"></span></th>
+              <th><span class="fci-col-label"><span class="tip tip-down" data-t="Patrimonio — VCP × CCP. Valor total administrado por el fondo en pesos a esa fecha.">Patrimonio ⓘ</span></span><span class="fci-col-resizer" data-fci-col-index="3" role="separator" aria-label="Ajustar ancho de Patrimonio"></span></th>
+              <th><span class="fci-col-label"><span class="tip tip-down" data-t="Horizonte de inversión sugerido (corto, medio o largo).">Horizonte ⓘ</span></span><span class="fci-col-resizer" data-fci-col-index="4" role="separator" aria-label="Ajustar ancho de Horizonte"></span></th>
+              <th><span class="fci-col-label"><span class="tip tip-down" data-t="Señal rápida usando rendimiento mensual estimado por VCP vs benchmark de plazo fijo e inflación.">Señal ⓘ</span></span><span class="fci-col-resizer" data-fci-col-index="5" role="separator" aria-label="Ajustar ancho de Señal"></span></th>
+            </tr>
+          </thead>
+          <tbody id="fci-rows">
+            <tr><td colspan="6" class="dim">Cargando…</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="fci-bench" id="fci-bench-info">Benchmark: cargando…</div>
+      <div class="fci-empty" id="fci-empty" style="display:none">
+        No hay datos de FCI disponibles en este momento.
+      </div>
+      <div class="context-box">
+        <strong>Tip:</strong><br>
+        Se listan los fondos de la serie seleccionada ordenados por patrimonio (de mayor a menor).<br>
+        En las columnas <strong>VCP, CCP y Patrimonio</strong>: ▲ sube · ▼ baja · = sin cambios (vs día anterior).<br>
+        En la columna <strong>Señal</strong> (semáforo mensual):<br>
+        🔴 PERDIENDO rinde menos que plazo fijo y que inflación.<br>
+        🟠 OJO le gana al plazo fijo, pero pierde contra inflación.<br>
+        🟡 ACEPTABLE le gana a inflación por menos de 0.5 pp.<br>
+        🟢 GANANDO le gana a plazo fijo e inflación por más de 0.5 pp.<br>
+        Esta sección se actualiza automáticamente cada ~5 minutos en horario de mercado (Lun-Vie 10:30 a 18:00, GMT-3).<br>
+        Si falta base de cierre mensual o benchmark, la señal se muestra como <strong>s/dato</strong>.
+      </div>
+    </div><!-- /drawer-body -->
+  </div><!-- /drawer -->
+
+</div><!-- /body-wrap -->
+</div><!-- /app -->
+<div class="smart-tip" id="smart-tip" role="tooltip" aria-hidden="true"></div>
+
+<script>
+  // 1) Constantes y configuración
+  const ENDPOINTS = {
+    bundle: '/api/bundle'
+  };
+  const ARG_TZ = 'America/Argentina/Buenos_Aires';
+  const FETCH_INTERVAL_MS = 300000;
+  const CACHE_KEY = 'radar_cache';
+  const HISTORY_COLS_KEY = 'radar_history_col_widths_v1';
+  const FCI_COLS_KEY = 'radar_fci_col_widths_v1';
+  const DRAWER_WIDTH_KEY = 'radar_drawer_width_v1';
+  const FCI_SIGNAL_STREAK_KEY = 'radar_fci_signal_streaks_v1';
+  const CACHE_TTL_MS = 15 * 60 * 1000;
+  const RETRY_DELAYS = [10000, 30000, 60000];
+  const SIMILAR_PCT_THRESHOLD = 1;
+  const SIMILAR_ARS_THRESHOLD = 10;
+  const TREND_MAX_POINTS = 240;
+  const FCI_PAGE_SIZE = 10;
+  const DRAWER_MIN_W = 340;
+  const DRAWER_MAX_W = 760;
+  const HISTORY_DEFAULT_COL_WIDTHS = [170, 160, 160, 120, 120, 170];
+  const HISTORY_MIN_COL_WIDTHS = [120, 110, 110, 90, 90, 120];
+  const FCI_DEFAULT_COL_WIDTHS = [280, 150, 190, 190, 120, 160];
+  const FCI_MIN_COL_WIDTHS = [220, 120, 150, 150, 100, 130];
+  const NUMERIC_IDS = [
+    'mep-val', 'ccl-val', 'brecha-abs', 'brecha-pct'
+  ];
+  const state = {
+    retryIndex: 0,
+    retryTimer: null,
+    lastSuccessAt: 0,
+    isFetching: false,
+    filterMode: '1d',
+    lastMepPayload: null,
+    trendRows: [],
+    trendHoverBound: false,
+    historyResizeBound: false,
+    fciResizeBound: false,
+    historyColWidths: [],
+    fciColWidths: [],
+    sourceTsMs: null,
+    freshBadgeMode: 'idle',
+    freshTicker: null,
+    dataConfidence: 'NO_DATA',
+    sourceStatusOk: false,
+    fciType: 'fija',
+    fciRowsByType: { fija: [], variable: [] },
+    fciPreviousByFondoByType: { fija: new Map(), variable: new Map() },
+    fciBaseByFondoByType: { fija: new Map(), variable: new Map() },
+    fciBaseDateByType: { fija: null, variable: null },
+    fciBaseTargetDateByType: { fija: null, variable: null },
+    fciDateByType: { fija: '—', variable: '—' },
+    fciSignalStreaks: { fija: {}, variable: {} },
+    fciSignalStreaksDirty: false,
+    benchmark: {
+      plazoFijoMonthlyPct: null,
+      inflacionMonthlyPct: null,
+      inflacionDate: null,
+      updatedAtHumanArt: null
+    },
+    fciQuery: '',
+    fciPage: 1,
+    smartTipBound: false,
+    drawerResizeBound: false,
+    latest: {
+      mep: null,
+      ccl: null,
+      brechaAbs: null,
+      brechaPct: null
+    }
+  };
+
+  // 2) Helpers
+  const fmtArgTime = new Intl.DateTimeFormat('es-AR', {
+    timeZone: ARG_TZ,
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+  const fmtArgTimeSec = new Intl.DateTimeFormat('es-AR', {
+    timeZone: ARG_TZ,
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  });
+  const fmtArgHour = new Intl.DateTimeFormat('es-AR', {
+    timeZone: ARG_TZ,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  });
+  const fmtArgDayMonth = new Intl.DateTimeFormat('es-AR', {
+    timeZone: ARG_TZ,
+    day: '2-digit',
+    month: '2-digit'
+  });
+  const fmtArgDate = new Intl.DateTimeFormat('en-CA', {
+    timeZone: ARG_TZ,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  });
+  const fmtArgWeekday = new Intl.DateTimeFormat('en-US', {
+    timeZone: ARG_TZ,
+    weekday: 'short'
+  });
+  const fmtArgParts = new Intl.DateTimeFormat('en-US', {
+    timeZone: ARG_TZ,
+    weekday: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  });
+  const WEEKDAY = { Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6, Sun: 7 };
+
+  function toNumber(value) {
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    if (typeof value === 'string') {
+      const normalized = value.replace(/\s/g, '').replace(',', '.').replace(/[^\d.-]/g, '');
+      const parsed = Number(normalized);
+      return Number.isFinite(parsed) ? parsed : null;
+    }
+    return null;
+  }
+  function getPath(obj, path) {
+    return path.reduce((acc, key) => (acc && acc[key] !== undefined ? acc[key] : undefined), obj);
+  }
+  function pickNumber(obj, paths) {
+    for (const path of paths) {
+      const v = getPath(obj, path);
+      const n = toNumber(v);
+      if (n !== null) return n;
+    }
+    return null;
+  }
+  function pickByKeyHint(obj, hint) {
+    if (!obj || typeof obj !== 'object') return null;
+    const lower = hint.toLowerCase();
+    for (const [k, v] of Object.entries(obj)) {
+      if (k.toLowerCase().includes(lower)) {
+        const n = toNumber(v);
+        if (n !== null) return n;
+        if (v && typeof v === 'object') {
+          const deep = pickByKeyHint(v, hint);
+          if (deep !== null) return deep;
+        }
+      }
+      if (v && typeof v === 'object') {
+        const deep = pickByKeyHint(v, hint);
+        if (deep !== null) return deep;
+      }
+    }
+    return null;
+  }
+  function getArgNowParts(date = new Date()) {
+    const parts = fmtArgParts.formatToParts(date).reduce((acc, p) => {
+      acc[p.type] = p.value;
+      return acc;
+    }, {});
+    return {
+      weekday: WEEKDAY[parts.weekday] || 0,
+      hour: Number(parts.hour || '0'),
+      minute: Number(parts.minute || '0'),
+      second: Number(parts.second || '0')
+    };
+  }
+  function brechaPercent(mep, ccl) {
+    if (mep === null || ccl === null) return null;
+    const avg = (mep + ccl) / 2;
+    if (!avg) return null;
+    return (Math.abs(mep - ccl) / avg) * 100;
+  }
+  function formatMoney(value, digits = 0) {
+    if (value === null) return '—';
+    return '$' + value.toLocaleString('es-AR', {
+      minimumFractionDigits: digits,
+      maximumFractionDigits: digits
+    });
+  }
+  function formatPercent(value, digits = 2) {
+    if (value === null) return '—';
+    return value.toFixed(digits) + '%';
+  }
+  function formatCompactMoney(value, digits = 2) {
+    if (value === null) return '—';
+    return value.toLocaleString('es-AR', {
+      minimumFractionDigits: digits,
+      maximumFractionDigits: digits
+    });
+  }
+  function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, (char) => (
+      { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]
+    ));
+  }
+  function setText(id, text, options = {}) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const next = String(text);
+    const prev = el.textContent;
+    el.textContent = next;
+    el.classList.remove('skeleton');
+    if (options.changeClass && prev !== next) {
+      el.classList.add('value-changed');
+      setTimeout(() => el.classList.remove('value-changed'), 600);
+    }
+  }
+  function setDash(ids) {
+    ids.forEach((id) => setText(id, '—'));
+  }
+  function setLoading(ids, isLoading) {
+    ids.forEach((id) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.classList.toggle('skeleton', isLoading);
+    });
+  }
+  function setFreshBadge(text, mode) {
+    const badge = document.getElementById('fresh-badge');
+    const label = document.getElementById('fresh-badge-text');
+    if (!badge || !label) return;
+    label.textContent = text;
+    state.freshBadgeMode = mode || 'idle';
+    badge.classList.toggle('fetching', mode === 'fetching');
+    badge.classList.toggle('error', mode === 'error');
+    badge.onclick = mode === 'error' ? () => fetchAll({ manual: true }) : null;
+  }
+  function normalizeDataConfidence(value) {
+    const normalized = String(value || '').toUpperCase();
+    if (normalized === 'OK' || normalized === 'DELAYED' || normalized === 'NO_DATA') return normalized;
+    return null;
+  }
+  function formatSourceAgeLabel(tsMs) {
+    let n = toNumber(tsMs);
+    if (!Number.isFinite(n)) return null;
+    if (n < 1e12) n *= 1000;
+    const ageMin = Math.max(0, Math.floor((Date.now() - n) / 60000));
+    if (ageMin < 60) return `${ageMin} min`;
+    const h = Math.floor(ageMin / 60);
+    const m = ageMin % 60;
+    return m === 0 ? `${h} h` : `${h} h ${m} min`;
+  }
+  function applyDataConfidenceState(root, { forceBadge = false } = {}) {
+    const confidence = normalizeDataConfidence(root?.operational?.dataConfidence)
+      || (root?.current ? 'DELAYED' : 'NO_DATA');
+    state.dataConfidence = confidence;
+    state.sourceStatusOk = root?.sourceStatus?.ok === true;
+    const ageLabel = Number.isFinite(state.sourceTsMs) ? formatSourceAgeLabel(state.sourceTsMs) : null;
+
+    if (confidence === 'NO_DATA') {
+      setErrorBanner(true, 'NO_DATA · No hay snapshot válido disponible.');
+      if (forceBadge) setFreshBadge('NO_DATA · Sin datos válidos', 'idle');
+      return;
+    }
+
+    if (confidence === 'DELAYED') {
+      const errorType = typeof root?.sourceStatus?.error?.error_type === 'string'
+        ? root.sourceStatus.error.error_type
+        : null;
+      const detail = errorType ? ` · error fuente: ${errorType}` : '';
+      setErrorBanner(true, `DELAYED · Mostrando último snapshot válido${detail}.`);
+      if (forceBadge) {
+        const label = ageLabel ? `Última actualización hace: ${ageLabel}` : 'Mostrando último snapshot válido';
+        setFreshBadge(`DELAYED · ${label}`, 'idle');
+      }
+      return;
+    }
+
+    setErrorBanner(false);
+    if (forceBadge) {
+      if (ageLabel) setFreshBadge(`OK · Última actualización hace: ${ageLabel}`, 'idle');
+      else setFreshBadge(`OK · Actualizado · ${fmtArgTime.format(new Date())}`, 'idle');
+    }
+  }
+  function refreshFreshBadgeFromSource() {
+    if (state.freshBadgeMode === 'fetching' || state.freshBadgeMode === 'error') return;
+    if (state.dataConfidence === 'NO_DATA') {
+      setFreshBadge('NO_DATA · Sin datos válidos', 'idle');
+      return;
+    }
+    const ageLabel = Number.isFinite(state.sourceTsMs) ? formatSourceAgeLabel(state.sourceTsMs) : null;
+    if (state.dataConfidence === 'DELAYED') {
+      const label = ageLabel ? `Última actualización hace: ${ageLabel}` : 'Mostrando último snapshot válido';
+      setFreshBadge(`DELAYED · ${label}`, 'idle');
+      return;
+    }
+    if (ageLabel) setFreshBadge(`OK · Última actualización hace: ${ageLabel}`, 'idle');
+  }
+  function startFreshTicker() {
+    if (state.freshTicker) return;
+    state.freshTicker = setInterval(refreshFreshBadgeFromSource, 30000);
+  }
+  function setMarketTag(isOpen) {
+    const tag = document.getElementById('tag-mercado');
+    if (!tag) return;
+    tag.textContent = isOpen ? 'Mercado abierto' : 'Mercado cerrado';
+    tag.classList.toggle('closed', !isOpen);
+  }
+  function setErrorBanner(show, text) {
+    const banner = document.getElementById('error-banner');
+    const label = document.getElementById('error-banner-text');
+    if (!banner) return;
+    if (text && label) label.textContent = text;
+    banner.classList.toggle('show', !!show);
+  }
+  function extractRoot(json) {
+    return json && typeof json === 'object' ? (json.data || json.result || json) : {};
+  }
+  function normalizeFciRows(payload) {
+    const root = extractRoot(payload);
+    if (Array.isArray(root)) return root;
+    if (Array.isArray(root?.items)) return root.items;
+    if (Array.isArray(root?.rows)) return root.rows;
+    return [];
+  }
+  function normalizeFciFondoKey(value) {
+    return String(value || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+  function fciTrendDir(current, previous) {
+    const curr = toNumber(current);
+    const prev = toNumber(previous);
+    if (curr === null || prev === null) return 'na';
+    if (Math.abs(curr - prev) < 1e-9) return 'flat';
+    return curr > prev ? 'up' : 'down';
+  }
+  function fciTrendLabel(dir) {
+    if (dir === 'up') return 'Subió vs día anterior';
+    if (dir === 'down') return 'Bajó vs día anterior';
+    if (dir === 'flat') return 'Sin cambios vs día anterior';
+    return 'Sin dato del día anterior';
+  }
+  function renderFciTrendValue(value, dir) {
+    const direction = dir || 'na';
+    const icon = direction === 'up' ? '▲' : direction === 'down' ? '▼' : direction === 'flat' ? '=' : '·';
+    return `<span class="fci-trend ${direction}" title="${escapeHtml(fciTrendLabel(direction))}"><span class="fci-trend-icon">${icon}</span><span>${formatCompactMoney(value, 2)}</span></span>`;
+  }
+  function round2n(value) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return null;
+    return Math.round(n * 100) / 100;
+  }
+  function computeMonthlyPct(vcp, baseVcp) {
+    const curr = toNumber(vcp);
+    const prev = toNumber(baseVcp);
+    if (curr === null || prev === null || prev <= 0) return null;
+    return round2n(((curr - prev) / prev) * 100);
+  }
+  function formatPctVal(value) {
+    return value === null ? '—' : `${value.toFixed(2)}%`;
+  }
+  function toMonthKey(dateStr) {
+    if (typeof dateStr !== 'string') return null;
+    const clean = dateStr.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(clean)) return clean.slice(0, 7);
+    return null;
+  }
+  function loadFciSignalStreaks() {
+    try {
+      const raw = localStorage.getItem(FCI_SIGNAL_STREAK_KEY);
+      if (!raw) return { fija: {}, variable: {} };
+      const parsed = JSON.parse(raw);
+      return {
+        fija: parsed?.fija && typeof parsed.fija === 'object' ? parsed.fija : {},
+        variable: parsed?.variable && typeof parsed.variable === 'object' ? parsed.variable : {}
+      };
+    } catch {
+      return { fija: {}, variable: {} };
+    }
+  }
+  function saveFciSignalStreaks() {
+    if (!state.fciSignalStreaksDirty) return;
+    try {
+      localStorage.setItem(FCI_SIGNAL_STREAK_KEY, JSON.stringify(state.fciSignalStreaks));
+      state.fciSignalStreaksDirty = false;
+    } catch {}
+  }
+  function resolveFciSignalStreak(type, fondoKey, level, monthKey) {
+    if (!type || !fondoKey || !monthKey || !level || level === 'na') return null;
+    const byType = state.fciSignalStreaks[type] || (state.fciSignalStreaks[type] = {});
+    const current = byType[fondoKey];
+    if (!current) {
+      byType[fondoKey] = { level, monthKey, months: 1 };
+      state.fciSignalStreaksDirty = true;
+      return 1;
+    }
+    const prevMonths = Number.isFinite(Number(current.months)) ? Number(current.months) : 1;
+    if (current.monthKey === monthKey) {
+      if (current.level !== level) {
+        current.level = level;
+        current.months = 1;
+        state.fciSignalStreaksDirty = true;
+        return 1;
+      }
+      return prevMonths;
+    }
+    current.months = current.level === level ? prevMonths + 1 : 1;
+    current.level = level;
+    current.monthKey = monthKey;
+    state.fciSignalStreaksDirty = true;
+    return current.months;
+  }
+  function renderFciSignalBadge(signal) {
+    const s = signal || { kind: 'na', label: 's/dato', detail: '', streakMonths: null };
+    const streakValue = Number(s.streakMonths);
+    const streak = Number.isFinite(streakValue) && streakValue >= 1
+      ? `<span class="fci-signal-streak">Lleva ${s.streakMonths} ${Number(s.streakMonths) === 1 ? 'mes' : 'meses'} en este estado.</span>`
+      : '';
+    return `<span class="fci-signal-wrap"><span class="fci-signal ${s.kind}" title="${escapeHtml(s.detail || s.label)}">${escapeHtml(s.label)}</span>${streak}</span>`;
+  }
+  function computeFciSignal(row, type) {
+    const monthlyPct = toNumber(row.monthlyPct);
+    const pf = toNumber(state.benchmark.plazoFijoMonthlyPct);
+    const inf = toNumber(state.benchmark.inflacionMonthlyPct);
+    if (monthlyPct === null || pf === null || inf === null) {
+      return { kind: 'na', level: 'na', label: 's/dato', detail: 'Dato insuficiente para señal robusta mensual (se requiere base de cierre mensual + PF + inflación).', streakMonths: null };
+    }
+    const marginVsInf = round2n(monthlyPct - inf);
+    const detail = `Rend. mensual FCI (cierre mensual): ${formatPctVal(monthlyPct)} · PF mensual (TEM): ${formatPctVal(pf)} · Inflación mensual: ${formatPctVal(inf)}`;
+    let signal = null;
+    if (monthlyPct < pf && monthlyPct < inf) {
+      signal = { kind: 'bad', level: 'perdiendo', label: '🔴 PERDIENDO', detail };
+    } else if (monthlyPct >= pf && monthlyPct < inf) {
+      signal = { kind: 'ojo', level: 'ojo', label: '🟠 OJO', detail };
+    } else if (monthlyPct >= inf && marginVsInf <= 0.5) {
+      signal = { kind: 'warn', level: 'aceptable', label: '🟡 ACEPTABLE', detail };
+    } else if (monthlyPct > pf && marginVsInf > 0.5) {
+      signal = { kind: 'good', level: 'ganando', label: '🟢 GANANDO', detail };
+    } else {
+      signal = { kind: 'warn', level: 'aceptable', label: '🟡 ACEPTABLE', detail };
+    }
+    const monthKey = toMonthKey(row.fecha);
+    const streakMonths = resolveFciSignalStreak(type, normalizeFciFondoKey(row.fondo), signal.level, monthKey);
+    return { ...signal, streakMonths };
+  }
+  function renderFciBenchmarkInfo() {
+    const el = document.getElementById('fci-bench-info');
+    if (!el) return;
+    const pf = toNumber(state.benchmark.plazoFijoMonthlyPct);
+    const inf = toNumber(state.benchmark.inflacionMonthlyPct);
+    const infDate = state.benchmark.inflacionDate || '—';
+    const baseDate = state.fciBaseDateByType[state.fciType] || '—';
+    const baseTargetDate = state.fciBaseTargetDateByType[state.fciType] || '—';
+    if (pf === null && inf === null) {
+      el.innerHTML = 'Benchmark: sin datos de referencia por ahora.';
+      return;
+    }
+    const updated = state.benchmark.updatedAtHumanArt ? ` · Actualizado: ${escapeHtml(state.benchmark.updatedAtHumanArt)}` : '';
+    el.innerHTML = `<strong>Benchmark:</strong> PF mensual (TEM) ${formatPctVal(pf)} · Inflación mensual (${escapeHtml(infDate)}) ${formatPctVal(inf)} · Base FCI ${escapeHtml(baseDate)} (objetivo ${escapeHtml(baseTargetDate)})${updated}`;
+  }
+  function getHistoryColElements() {
+    const colgroup = document.getElementById('history-colgroup');
+    return colgroup ? Array.from(colgroup.querySelectorAll('col')) : [];
+  }
+  function clampHistoryWidths(widths) {
+    return HISTORY_DEFAULT_COL_WIDTHS.map((fallback, i) => {
+      const raw = Number(widths?.[i]);
+      if (!Number.isFinite(raw)) return fallback;
+      const min = HISTORY_MIN_COL_WIDTHS[i] ?? 80;
+      return Math.max(min, Math.round(raw));
+    });
+  }
+  function saveHistoryColumnWidths(widths) {
+    try {
+      localStorage.setItem(HISTORY_COLS_KEY, JSON.stringify(clampHistoryWidths(widths)));
+    } catch (e) {
+      console.error('[RadarMEP] no se pudo guardar anchos de columnas', e);
+    }
+  }
+  function loadHistoryColumnWidths() {
+    try {
+      const raw = localStorage.getItem(HISTORY_COLS_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed) || parsed.length !== HISTORY_DEFAULT_COL_WIDTHS.length) return null;
+      return clampHistoryWidths(parsed);
+    } catch (e) {
+      console.error('[RadarMEP] anchos de columnas inválidos', e);
+      return null;
+    }
+  }
+  function applyHistoryColumnWidths(widths, persist = false) {
+    const cols = getHistoryColElements();
+    if (cols.length !== HISTORY_DEFAULT_COL_WIDTHS.length) return;
+    const next = clampHistoryWidths(widths);
+    cols.forEach((col, i) => {
+      col.style.width = `${next[i]}px`;
+    });
+    state.historyColWidths = next;
+    if (persist) saveHistoryColumnWidths(next);
+  }
+  function initHistoryColumnWidths() {
+    const saved = loadHistoryColumnWidths();
+    applyHistoryColumnWidths(saved || HISTORY_DEFAULT_COL_WIDTHS, false);
+  }
+  function bindHistoryColumnResize() {
+    if (state.historyResizeBound) return;
+    const table = document.getElementById('history-table');
+    if (!table) return;
+    const handles = Array.from(table.querySelectorAll('.col-resizer'));
+    if (!handles.length) return;
+    state.historyResizeBound = true;
+
+    handles.forEach((handle) => {
+      handle.addEventListener('dblclick', (event) => {
+        event.preventDefault();
+        const idx = Number(handle.dataset.colIndex);
+        if (!Number.isFinite(idx)) return;
+        const next = state.historyColWidths.slice();
+        next[idx] = HISTORY_DEFAULT_COL_WIDTHS[idx];
+        applyHistoryColumnWidths(next, true);
+      });
+      handle.addEventListener('pointerdown', (event) => {
+        if (event.button !== 0) return;
+        const idx = Number(handle.dataset.colIndex);
+        if (!Number.isFinite(idx)) return;
+        const startX = event.clientX;
+        const startWidth = state.historyColWidths[idx] ?? HISTORY_DEFAULT_COL_WIDTHS[idx];
+        handle.classList.add('active');
+        event.preventDefault();
+
+        const onMove = (moveEvent) => {
+          const delta = moveEvent.clientX - startX;
+          const min = HISTORY_MIN_COL_WIDTHS[idx] ?? 80;
+          const nextWidth = Math.max(min, Math.round(startWidth + delta));
+          const next = state.historyColWidths.slice();
+          next[idx] = nextWidth;
+          applyHistoryColumnWidths(next, false);
+        };
+        const onUp = () => {
+          window.removeEventListener('pointermove', onMove);
+          window.removeEventListener('pointerup', onUp);
+          handle.classList.remove('active');
+          saveHistoryColumnWidths(state.historyColWidths);
+        };
+        window.addEventListener('pointermove', onMove);
+        window.addEventListener('pointerup', onUp);
+      });
+    });
+  }
+
+  function getFciColElements() {
+    const colgroup = document.getElementById('fci-colgroup');
+    return colgroup ? Array.from(colgroup.querySelectorAll('col')) : [];
+  }
+  function clampFciWidths(widths) {
+    return FCI_DEFAULT_COL_WIDTHS.map((fallback, i) => {
+      const raw = Number(widths?.[i]);
+      if (!Number.isFinite(raw)) return fallback;
+      const min = FCI_MIN_COL_WIDTHS[i] ?? 80;
+      return Math.max(min, Math.round(raw));
+    });
+  }
+  function saveFciColumnWidths(widths) {
+    try {
+      localStorage.setItem(FCI_COLS_KEY, JSON.stringify(clampFciWidths(widths)));
+    } catch (e) {
+      console.error('[RadarMEP] no se pudo guardar anchos de columnas FCI', e);
+    }
+  }
+  function loadFciColumnWidths() {
+    try {
+      const raw = localStorage.getItem(FCI_COLS_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed) || parsed.length !== FCI_DEFAULT_COL_WIDTHS.length) return null;
+      return clampFciWidths(parsed);
+    } catch (e) {
+      console.error('[RadarMEP] anchos de columnas FCI inválidos', e);
+      return null;
+    }
+  }
+  function applyFciColumnWidths(widths, persist = false) {
+    const cols = getFciColElements();
+    if (cols.length !== FCI_DEFAULT_COL_WIDTHS.length) return;
+    const next = clampFciWidths(widths);
+    cols.forEach((col, i) => {
+      col.style.width = `${next[i]}px`;
+    });
+    state.fciColWidths = next;
+    if (persist) saveFciColumnWidths(next);
+  }
+  function initFciColumnWidths() {
+    const saved = loadFciColumnWidths();
+    applyFciColumnWidths(saved || FCI_DEFAULT_COL_WIDTHS, false);
+  }
+  function bindFciColumnResize() {
+    if (state.fciResizeBound) return;
+    const table = document.querySelector('.fci-table');
+    if (!table) return;
+    const handles = Array.from(table.querySelectorAll('.fci-col-resizer'));
+    if (!handles.length) return;
+    state.fciResizeBound = true;
+
+    handles.forEach((handle) => {
+      handle.addEventListener('dblclick', (event) => {
+        event.preventDefault();
+        const idx = Number(handle.dataset.fciColIndex);
+        if (!Number.isFinite(idx)) return;
+        const next = state.fciColWidths.slice();
+        next[idx] = FCI_DEFAULT_COL_WIDTHS[idx];
+        applyFciColumnWidths(next, true);
+      });
+      handle.addEventListener('pointerdown', (event) => {
+        if (event.button !== 0) return;
+        const idx = Number(handle.dataset.fciColIndex);
+        if (!Number.isFinite(idx)) return;
+        const startX = event.clientX;
+        const startWidth = state.fciColWidths[idx] ?? FCI_DEFAULT_COL_WIDTHS[idx];
+        handle.classList.add('active');
+        event.preventDefault();
+
+        const onMove = (moveEvent) => {
+          const delta = moveEvent.clientX - startX;
+          const min = FCI_MIN_COL_WIDTHS[idx] ?? 80;
+          const nextWidth = Math.max(min, Math.round(startWidth + delta));
+          const next = state.fciColWidths.slice();
+          next[idx] = nextWidth;
+          applyFciColumnWidths(next, false);
+        };
+        const onUp = () => {
+          window.removeEventListener('pointermove', onMove);
+          window.removeEventListener('pointerup', onUp);
+          handle.classList.remove('active');
+          saveFciColumnWidths(state.fciColWidths);
+        };
+        window.addEventListener('pointermove', onMove);
+        window.addEventListener('pointerup', onUp);
+      });
+    });
+  }
+
+  // 3) Funciones de render
+  function renderMepCcl(payload) {
+    if (!payload) {
+      setDash(['mep-val', 'ccl-val', 'brecha-abs', 'brecha-pct']);
+      setText('status-label', 'Datos incompletos');
+      setText('status-badge', 'Sin dato');
+      state.dataConfidence = 'NO_DATA';
+      return;
+    }
+    const data = extractRoot(payload);
+    const current = data && typeof data.current === 'object' ? data.current : null;
+    const mep = current ? toNumber(current.mep) : (pickNumber(data, [['mep', 'venta'], ['mep', 'sell'], ['mep'], ['mep_venta'], ['dolar_mep']]) ?? pickByKeyHint(data, 'mep'));
+    const ccl = current ? toNumber(current.ccl) : (pickNumber(data, [['ccl', 'venta'], ['ccl', 'sell'], ['ccl'], ['ccl_venta'], ['dolar_ccl']]) ?? pickByKeyHint(data, 'ccl'));
+    const abs = current
+      ? toNumber(current.spreadAbsArs) ?? toNumber(current.absDiff) ?? (mep !== null && ccl !== null ? Math.abs(mep - ccl) : null)
+      : (mep !== null && ccl !== null ? Math.abs(mep - ccl) : null);
+    const pct = current
+      ? toNumber(current.spreadPctPercent) ?? toNumber(current.pctDiff) ?? brechaPercent(mep, ccl)
+      : brechaPercent(mep, ccl);
+    const isSimilar = current && typeof current.similar === 'boolean'
+      ? current.similar
+      : (pct !== null && abs !== null && (pct <= SIMILAR_PCT_THRESHOLD || abs <= SIMILAR_ARS_THRESHOLD));
+
+    setText('mep-val', formatMoney(mep, 2), { changeClass: true });
+    setText('ccl-val', formatMoney(ccl, 2), { changeClass: true });
+    setText('brecha-abs', abs === null ? '—' : formatMoney(abs, 2), { changeClass: true });
+    setText('brecha-pct', formatPercent(pct, 2), { changeClass: true });
+    setText('status-label', isSimilar ? 'MEP ≈ CCL' : 'MEP ≠ CCL');
+    setText('status-badge', isSimilar ? 'Similar' : 'No similar');
+    const badge = document.getElementById('status-badge');
+    if (badge) badge.classList.toggle('nosim', !isSimilar);
+
+    const banner = document.getElementById('status-banner');
+    if (banner) {
+      banner.classList.toggle('similar', !!isSimilar);
+      banner.classList.toggle('no-similar', !isSimilar);
+    }
+    const sub = document.querySelector('#status-banner .s-sub');
+    if (sub) {
+      sub.textContent = isSimilar
+        ? 'La brecha está dentro del umbral — los precios son comparables'
+        : 'La brecha supera el umbral — los precios no son comparables';
+    }
+    const isOpen = data?.market && typeof data.market.isOpen === 'boolean' ? data.market.isOpen : null;
+    if (isOpen !== null) setMarketTag(isOpen);
+    state.latest.mep = mep;
+    state.latest.ccl = ccl;
+    state.latest.brechaAbs = abs;
+    state.latest.brechaPct = pct;
+  }
+
+  function isSimilarRow(row) {
+    const abs = row.abs_diff != null ? row.abs_diff : Math.abs(row.mep - row.ccl);
+    const pct = row.spread_pct_percent != null
+      ? row.spread_pct_percent
+      : (row.pct_diff != null ? row.pct_diff : calcBrechaPct(row.mep, row.ccl));
+    return (Number.isFinite(pct) && pct <= SIMILAR_PCT_THRESHOLD) || (Number.isFinite(abs) && abs <= SIMILAR_ARS_THRESHOLD);
+  }
+
+  function filterDescriptor(mode = state.filterMode) {
+    if (mode === '1m') return '1 Mes';
+    if (mode === '1w') return '1 Semana';
+    return '1 Día';
+  }
+
+  function renderMetrics24h(payload) {
+    const filtered = filterHistoryRows(extractHistoryRows(payload), state.filterMode);
+    const pctValues = filtered
+      .map((r) => (r.spread_pct_percent != null ? r.spread_pct_percent : (r.pct_diff != null ? r.pct_diff : calcBrechaPct(r.mep, r.ccl))))
+      .filter((v) => Number.isFinite(v));
+    const similarCount = filtered.filter((r) => isSimilarRow(r)).length;
+    const descriptor = filterDescriptor();
+
+    setText('metric-count-label', `Muestras ${descriptor}`);
+    setText('metric-count-24h', String(filtered.length), { changeClass: true });
+    setText('metric-count-sub', 'registros del período filtrado');
+    setText('metric-similar-label', `Veces similar (${descriptor})`);
+    setText('metric-similar-24h', String(similarCount), { changeClass: true });
+    setText('metric-similar-sub', 'momentos en zona ≤1% o ≤$10');
+    setText('metric-min-label', `Brecha mín. (${descriptor})`);
+    setText('metric-min-24h', pctValues.length ? formatPercent(Math.min(...pctValues), 2) : '—', { changeClass: true });
+    setText('metric-min-sub', 'mínima del período filtrado');
+    setText('metric-max-label', `Brecha máx. (${descriptor})`);
+    setText('metric-max-24h', pctValues.length ? formatPercent(Math.max(...pctValues), 2) : '—', { changeClass: true });
+    setText('metric-max-sub', 'máxima del período filtrado');
+    setText('trend-title', `Tendencia MEP/CCL — ${descriptor}`);
+  }
+
+  function rowHourLabel(epoch) {
+    const n = toNumber(epoch);
+    if (n === null) return '—';
+    return fmtArgHour.format(new Date(n * 1000));
+  }
+  function rowDayHourLabel(epoch) {
+    const n = toNumber(epoch);
+    if (n === null) return '—';
+    const date = new Date(n * 1000);
+    return `${fmtArgDayMonth.format(date)} ${fmtArgHour.format(date)}`;
+  }
+  function artDateKey(epoch) {
+    const n = toNumber(epoch);
+    if (n === null) return null;
+    return fmtArgDate.format(new Date(n * 1000));
+  }
+  function artWeekday(epoch) {
+    const n = toNumber(epoch);
+    if (n === null) return null;
+    return fmtArgWeekday.format(new Date(n * 1000));
+  }
+  function extractHistoryRows(payload) {
+    const data = extractRoot(payload);
+    const rows = Array.isArray(data.history) ? data.history.slice() : [];
+    return rows
+      .map((r) => ({
+        epoch: toNumber(r.epoch),
+        mep: toNumber(r.mep),
+        ccl: toNumber(r.ccl),
+        abs_diff: toNumber(r.abs_diff),
+        spread_pct_percent: toNumber(r.spread_pct_percent),
+        pct_diff: toNumber(r.pct_diff),
+        similar: Boolean(r.similar)
+      }))
+      .filter((r) => r.epoch != null && r.mep != null && r.ccl != null)
+      .sort((a, b) => a.epoch - b.epoch);
+  }
+  function filterHistoryRows(rows, mode) {
+    if (!rows.length) return [];
+    const latestEpoch = rows[rows.length - 1].epoch;
+    if (mode === '1m') {
+      const cutoff = latestEpoch - (30 * 24 * 3600);
+      return rows.filter((r) => r.epoch >= cutoff);
+    }
+    if (mode === '1w') {
+      const allowedDays = new Set();
+      for (let i = rows.length - 1; i >= 0; i--) {
+        const day = artDateKey(rows[i].epoch);
+        const wd = artWeekday(rows[i].epoch);
+        if (!day || wd === 'Sat' || wd === 'Sun') continue;
+        allowedDays.add(day);
+        if (allowedDays.size >= 5) break;
+      }
+      return rows.filter((r) => {
+        const day = artDateKey(r.epoch);
+        return day && allowedDays.has(day);
+      });
+    }
+    const cutoff = latestEpoch - (24 * 3600);
+    return rows.filter((r) => r.epoch >= cutoff);
+  }
+  function downsampleRows(rows, maxPoints) {
+    if (rows.length <= maxPoints) return rows;
+    const out = [];
+    const step = (rows.length - 1) / (maxPoints - 1);
+    for (let i = 0; i < maxPoints; i++) {
+      out.push(rows[Math.round(i * step)]);
+    }
+    return out;
+  }
+  function currentFilterLabel() {
+    if (state.filterMode === '1m') return '1 Mes';
+    if (state.filterMode === '1w') return '1 Semana';
+    return '1 Día';
+  }
+  function getFilteredHistoryRows(payload = state.lastMepPayload) {
+    if (!payload) return [];
+    return filterHistoryRows(extractHistoryRows(payload), state.filterMode);
+  }
+  function csvEscape(value) {
+    const v = String(value ?? '');
+    return `"${v.replace(/"/g, '""')}"`;
+  }
+  function csvNumber(value, digits = 2) {
+    if (!Number.isFinite(value)) return '—';
+    return value.toFixed(digits).replace('.', ',');
+  }
+  function filterCode() {
+    if (state.filterMode === '1m') return '1m';
+    if (state.filterMode === '1w') return '1w';
+    return '1d';
+  }
+  function downloadHistoryCsv() {
+    const filtered = getFilteredHistoryRows();
+    if (!filtered.length) {
+      setFreshBadge('Sin datos para exportar en el filtro activo', 'idle');
+      return;
+    }
+    const header = ['fecha', 'hora', 'mep', 'ccl', 'dif_abs', 'dif_pct', 'estado'];
+    const rows = filtered.map((r) => {
+      const date = new Date(r.epoch * 1000);
+      const mep = toNumber(r.mep);
+      const ccl = toNumber(r.ccl);
+      const abs = toNumber(r.abs_diff);
+      const pct = toNumber(r.spread_pct_percent) ?? toNumber(r.pct_diff);
+      const estado = Boolean(r.similar) ? 'SIMILAR' : 'NO SIMILAR';
+      return [
+        fmtArgDayMonth.format(date),
+        fmtArgHour.format(date),
+        csvNumber(mep, 2),
+        csvNumber(ccl, 2),
+        csvNumber(abs, 2),
+        csvNumber(pct, 2),
+        estado
+      ].map(csvEscape).join(';');
+    });
+    const artDate = fmtArgDate.format(new Date());
+    const filename = `historial-mep-ccl-${filterCode()}-${artDate}.csv`;
+    const csv = '\uFEFF' + [header.join(';'), ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+  function applyFilter(mode) {
+    state.filterMode = mode;
+    document.querySelectorAll('.pill[data-filter]').forEach((btn) => {
+      btn.classList.toggle('on', btn.dataset.filter === mode);
+    });
+    if (state.lastMepPayload) {
+      renderTrend(state.lastMepPayload);
+      renderHistory(state.lastMepPayload);
+      renderMetrics24h(state.lastMepPayload);
+    }
+  }
+
+  function renderHistory(payload) {
+    const tbody = document.getElementById('history-rows');
+    const cap = document.getElementById('history-cap');
+    if (!tbody) return;
+    const filtered = getFilteredHistoryRows(payload);
+    const rows = filtered.slice().reverse();
+    if (cap) cap.textContent = `${currentFilterLabel()} · ${rows.length} registros`;
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td class="dim" colspan="6">Sin registros todavía</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rows.map((r) => {
+      const mep = toNumber(r.mep);
+      const ccl = toNumber(r.ccl);
+      const abs = toNumber(r.abs_diff);
+      const pct = toNumber(r.spread_pct_percent) ?? toNumber(r.pct_diff);
+      const sim = Boolean(r.similar);
+      return `<tr>
+        <td class="dim"><div class="ts-day">${fmtArgDayMonth.format(new Date(r.epoch * 1000))}</div><div class="ts-hour">${rowHourLabel(r.epoch)}</div></td>
+        <td style="color:var(--mep)">${formatMoney(mep, 2)}</td>
+        <td style="color:var(--ccl)">${formatMoney(ccl, 2)}</td>
+        <td>${formatMoney(abs, 2)}</td>
+        <td>${formatPercent(pct, 2)}</td>
+        <td><span class="sbadge ${sim ? 'sim' : 'nosim'}">${sim ? 'Similar' : 'No similar'}</span></td>
+      </tr>`;
+    }).join('');
+  }
+
+  function linePoints(values, x0, x1, y0, y1, minValue, maxValue) {
+    if (!values.length) return '';
+    const min = Number.isFinite(minValue) ? minValue : Math.min(...values);
+    const max = Number.isFinite(maxValue) ? maxValue : Math.max(...values);
+    const span = Math.max(0.000001, max - min);
+    return values.map((v, i) => {
+      const x = x0 + ((x1 - x0) * i / Math.max(1, values.length - 1));
+      const y = y1 - ((v - min) / span) * (y1 - y0);
+      return `${x.toFixed(2)},${y.toFixed(2)}`;
+    }).join(' ');
+  }
+  function valueToY(value, y0, y1, minValue, maxValue) {
+    const span = Math.max(0.000001, maxValue - minValue);
+    return y1 - ((value - minValue) / span) * (y1 - y0);
+  }
+  function calcBrechaPct(mep, ccl) {
+    if (!Number.isFinite(mep) || !Number.isFinite(ccl)) return null;
+    const avg = (mep + ccl) / 2;
+    if (!avg) return null;
+    return (Math.abs(mep - ccl) / avg) * 100;
+  }
+  function calcBrechaAbs(mep, ccl) {
+    if (!Number.isFinite(mep) || !Number.isFinite(ccl)) return null;
+    return Math.abs(mep - ccl);
+  }
+  function setBrechaHourlyDelta(deltaPct) {
+    const el = document.getElementById('brecha-hourly-delta');
+    if (!el) return;
+    el.classList.remove('up', 'down');
+    if (!Number.isFinite(deltaPct)) {
+      setText('brecha-hourly-delta', 'vs hace 1h —');
+      return;
+    }
+    const absDelta = Math.abs(deltaPct).toFixed(2);
+    if (deltaPct > 0.0001) {
+      el.classList.add('up');
+      setText('brecha-hourly-delta', `▲ ${absDelta}% vs hace 1h`);
+      return;
+    }
+    if (deltaPct < -0.0001) {
+      el.classList.add('down');
+      setText('brecha-hourly-delta', `▼ ${absDelta}% vs hace 1h`);
+      return;
+    }
+    setText('brecha-hourly-delta', `• ${absDelta}% vs hace 1h`);
+  }
+  function hideTrendHover() {
+    const tip = document.getElementById('trend-tooltip');
+    const line = document.getElementById('trend-hover-line');
+    const mepDot = document.getElementById('trend-hover-mep');
+    const cclDot = document.getElementById('trend-hover-ccl');
+    if (tip) tip.setAttribute('opacity', '0');
+    if (line) line.setAttribute('opacity', '0');
+    if (mepDot) mepDot.setAttribute('opacity', '0');
+    if (cclDot) cclDot.setAttribute('opacity', '0');
+  }
+  function renderTrendHover(point) {
+    const tip = document.getElementById('trend-tooltip');
+    const bg = document.getElementById('trend-tooltip-bg');
+    const line = document.getElementById('trend-hover-line');
+    const mepDot = document.getElementById('trend-hover-mep');
+    const cclDot = document.getElementById('trend-hover-ccl');
+    if (!tip || !bg || !line || !mepDot || !cclDot || !point) return;
+
+    line.setAttribute('x1', point.x.toFixed(2));
+    line.setAttribute('x2', point.x.toFixed(2));
+    line.setAttribute('opacity', '1');
+    mepDot.setAttribute('cx', point.x.toFixed(2));
+    mepDot.setAttribute('cy', point.mepY.toFixed(2));
+    mepDot.setAttribute('opacity', '1');
+    cclDot.setAttribute('cx', point.x.toFixed(2));
+    cclDot.setAttribute('cy', point.cclY.toFixed(2));
+    cclDot.setAttribute('opacity', '1');
+
+    setText('trend-tip-time', rowDayHourLabel(point.epoch));
+    setText('trend-tip-mep', `MEP ${formatMoney(point.mep, 2)}`);
+    setText('trend-tip-ccl', `CCL ${formatMoney(point.ccl, 2)}`);
+    const absGap = calcBrechaAbs(point.mep, point.ccl);
+    setText('trend-tip-gap', `Brecha ${formatPercent(point.pct, 2)} · ${formatMoney(absGap, 2)}`);
+
+    const tipW = 188;
+    const tipH = 56;
+    const tipX = Math.min(840 - tipW, Math.max(30, point.x + 10));
+    const tipY = Math.min(100, Math.max(18, Math.min(point.mepY, point.cclY) - tipH - 4));
+    tip.setAttribute('transform', `translate(${tipX.toFixed(2)} ${tipY.toFixed(2)})`);
+    bg.setAttribute('width', String(tipW));
+    bg.setAttribute('height', String(tipH));
+    tip.setAttribute('opacity', '1');
+  }
+  function bindTrendHover() {
+    if (state.trendHoverBound) return;
+    const chart = document.getElementById('trend-chart');
+    if (!chart) return;
+    state.trendHoverBound = true;
+
+    chart.addEventListener('mouseleave', () => hideTrendHover());
+    chart.addEventListener('mousemove', (event) => {
+      if (!state.trendRows.length) return;
+      const ctm = chart.getScreenCTM();
+      if (!ctm) return;
+      const pt = chart.createSVGPoint();
+      pt.x = event.clientX;
+      pt.y = event.clientY;
+      const local = pt.matrixTransform(ctm.inverse());
+      const x = Math.max(30, Math.min(840, local.x));
+      let nearest = state.trendRows[0];
+      let best = Math.abs(nearest.x - x);
+      for (let i = 1; i < state.trendRows.length; i++) {
+        const d = Math.abs(state.trendRows[i].x - x);
+        if (d < best) {
+          best = d;
+          nearest = state.trendRows[i];
+        }
+      }
+      renderTrendHover(nearest);
+    });
+  }
+
+  function renderTrend(payload) {
+    const history = downsampleRows(filterHistoryRows(extractHistoryRows(payload), state.filterMode), TREND_MAX_POINTS);
+    const mepLine = document.getElementById('trend-mep-line');
+    const cclLine = document.getElementById('trend-ccl-line');
+    if (!mepLine || !cclLine) return;
+    bindTrendHover();
+    if (!history.length) {
+      mepLine.setAttribute('points', '');
+      cclLine.setAttribute('points', '');
+      state.trendRows = [];
+      hideTrendHover();
+      ['trend-y-top', 'trend-y-mid', 'trend-y-low', 'trend-x-1', 'trend-x-2', 'trend-x-3', 'trend-x-4', 'trend-x-5'].forEach((id) => setText(id, '—'));
+      setBrechaHourlyDelta(null);
+      return;
+    }
+
+    const rows = history
+      .map((r) => ({
+        epoch: r.epoch,
+        mep: toNumber(r.mep),
+        ccl: toNumber(r.ccl),
+        pct: toNumber(r.spread_pct_percent) ?? toNumber(r.pct_diff)
+      }))
+      .filter((r) => r.mep != null && r.ccl != null);
+    if (!rows.length) return;
+
+    const mepVals = rows.map((r) => r.mep);
+    const cclVals = rows.map((r) => r.ccl);
+    const current = rows[rows.length - 1];
+    const currentPct = calcBrechaPct(current.mep, current.ccl);
+    const targetEpoch = current.epoch - 3600;
+    let ref = rows[0];
+    let best = Math.abs((ref?.epoch ?? targetEpoch) - targetEpoch);
+    for (let i = 1; i < rows.length; i++) {
+      const d = Math.abs(rows[i].epoch - targetEpoch);
+      if (d < best) {
+        best = d;
+        ref = rows[i];
+      }
+    }
+    const refPct = calcBrechaPct(ref?.mep, ref?.ccl);
+    const delta = Number.isFinite(currentPct) && Number.isFinite(refPct) ? currentPct - refPct : null;
+    setBrechaHourlyDelta(delta);
+
+    // Escala compartida para MEP y CCL: comparación visual fiel.
+    const allPriceVals = mepVals.concat(cclVals);
+    const rawMin = Math.min(...allPriceVals);
+    const rawMax = Math.max(...allPriceVals);
+    const pricePad = Math.max(1, (rawMax - rawMin) * 0.08);
+    const priceMin = rawMin - pricePad;
+    const priceMax = rawMax + pricePad;
+
+    mepLine.setAttribute('points', linePoints(mepVals, 30, 840, 25, 130, priceMin, priceMax));
+    cclLine.setAttribute('points', linePoints(cclVals, 30, 840, 25, 130, priceMin, priceMax));
+    state.trendRows = rows.map((r, i) => {
+      const x = 30 + ((840 - 30) * i / Math.max(1, rows.length - 1));
+      return {
+        epoch: r.epoch,
+        mep: r.mep,
+        ccl: r.ccl,
+        pct: calcBrechaPct(r.mep, r.ccl),
+        x,
+        mepY: valueToY(r.mep, 25, 130, priceMin, priceMax),
+        cclY: valueToY(r.ccl, 25, 130, priceMin, priceMax)
+      };
+    });
+    hideTrendHover();
+
+    const mid = (priceMin + priceMax) / 2;
+    setText('trend-y-top', (priceMax / 1000).toFixed(3));
+    setText('trend-y-mid', (mid / 1000).toFixed(3));
+    setText('trend-y-low', (priceMin / 1000).toFixed(3));
+
+    const idx = [0, 0.25, 0.5, 0.75, 1].map((p) => Math.min(rows.length - 1, Math.floor((rows.length - 1) * p)));
+    const labs = idx.map((i) => rowDayHourLabel(rows[i]?.epoch));
+    setText('trend-x-1', labs[0] || '—');
+    setText('trend-x-2', labs[1] || '—');
+    setText('trend-x-3', labs[2] || '—');
+    setText('trend-x-4', labs[3] || '—');
+    setText('trend-x-5', labs[4] || '—');
+  }
+
+  function getFciTypeLabel(type) {
+    return type === 'variable' ? 'Renta variable (FCI Argentina)' : 'Renta fija (FCI Argentina)';
+  }
+
+  function setFciType(type) {
+    const next = type === 'variable' ? 'variable' : 'fija';
+    if (state.fciType === next) return;
+    state.fciType = next;
+    state.fciPage = 1;
+    renderFciRentaFija();
+  }
+
+  function renderFciRentaFija(payload, previousPayload, type = state.fciType, basePayload) {
+    const normalizedType = type === 'variable' ? 'variable' : 'fija';
+    const rowsEl = document.getElementById('fci-rows');
+    const emptyEl = document.getElementById('fci-empty');
+    if (!rowsEl || !emptyEl) return;
+
+    const titleEl = document.getElementById('fci-title');
+    if (titleEl) titleEl.textContent = getFciTypeLabel(state.fciType);
+    const tabFija = document.getElementById('fci-tab-fija');
+    const tabVariable = document.getElementById('fci-tab-variable');
+    if (tabFija) tabFija.classList.toggle('active', state.fciType === 'fija');
+    if (tabVariable) tabVariable.classList.toggle('active', state.fciType === 'variable');
+
+    if (arguments.length > 1) {
+      const previousRows = normalizeFciRows(previousPayload)
+        .map((item) => {
+          const fondo = String(item?.fondo || item?.nombre || item?.fci || '').trim();
+          return {
+            fondo,
+            vcp: toNumber(item?.vcp),
+            ccp: toNumber(item?.ccp),
+            patrimonio: toNumber(item?.patrimonio),
+          };
+        })
+        .filter((item) => item.fondo);
+      const previousByFondo = new Map();
+      previousRows.forEach((item) => {
+        previousByFondo.set(normalizeFciFondoKey(item.fondo), item);
+      });
+      state.fciPreviousByFondoByType[normalizedType] = previousByFondo;
+    }
+    if (arguments.length > 3) {
+      const baseRows = normalizeFciRows(basePayload)
+        .map((item) => {
+          const fondo = String(item?.fondo || item?.nombre || item?.fci || '').trim();
+          return {
+            fondo,
+            vcp: toNumber(item?.vcp)
+          };
+        })
+        .filter((item) => item.fondo && item.vcp !== null);
+      const baseByFondo = new Map();
+      baseRows.forEach((item) => {
+        baseByFondo.set(normalizeFciFondoKey(item.fondo), item);
+      });
+      state.fciBaseByFondoByType[normalizedType] = baseByFondo;
+      state.fciBaseDateByType[normalizedType] = typeof basePayload?.baseDate === 'string' ? basePayload.baseDate : null;
+      state.fciBaseTargetDateByType[normalizedType] = typeof basePayload?.baseTargetDate === 'string' ? basePayload.baseTargetDate : null;
+    }
+    if (arguments.length > 0) {
+      const rows = normalizeFciRows(payload)
+        .map((item) => {
+          const fondo = String(item?.fondo || item?.nombre || item?.fci || '').trim();
+          const fecha = String(item?.fecha || '').trim();
+          const vcp = toNumber(item?.vcp);
+          const ccp = toNumber(item?.ccp);
+          const patrimonio = toNumber(item?.patrimonio);
+          const horizonte = String(item?.horizonte || '').trim();
+          const fondoKey = normalizeFciFondoKey(fondo);
+          const previous = state.fciPreviousByFondoByType[normalizedType].get(fondoKey);
+          const base = state.fciBaseByFondoByType[normalizedType].get(fondoKey);
+          const monthlyPct = computeMonthlyPct(vcp, base?.vcp);
+          return {
+            fondo,
+            fecha,
+            vcp,
+            ccp,
+            patrimonio,
+            horizonte,
+            monthlyPct,
+            previousVcp: previous?.vcp ?? null,
+            vcpTrend: fciTrendDir(vcp, previous?.vcp),
+            ccpTrend: fciTrendDir(ccp, previous?.ccp),
+            patrimonioTrend: fciTrendDir(patrimonio, previous?.patrimonio),
+          };
+        })
+        .filter((item) => item.fondo && (item.vcp !== null || item.fecha));
+      const sortedRows = rows.slice().sort((a, b) => (b.patrimonio ?? -Infinity) - (a.patrimonio ?? -Infinity));
+      state.fciRowsByType[normalizedType] = sortedRows;
+      state.fciDateByType[normalizedType] = sortedRows.find((row) => row.fecha)?.fecha || '—';
+      if (normalizedType === state.fciType) state.fciPage = 1;
+    }
+
+    const activeRows = state.fciRowsByType[state.fciType] || [];
+    const query = state.fciQuery.trim().toLowerCase();
+    const filtered = query
+      ? activeRows.filter((row) => row.fondo.toLowerCase().includes(query))
+      : activeRows.slice();
+
+    const totalPages = Math.max(1, Math.ceil(filtered.length / FCI_PAGE_SIZE));
+    state.fciPage = Math.min(Math.max(1, state.fciPage), totalPages);
+    const from = (state.fciPage - 1) * FCI_PAGE_SIZE;
+    const pageRows = filtered.slice(from, from + FCI_PAGE_SIZE);
+
+    const dateEl = document.getElementById('fci-last-date');
+    const firstDate = filtered.find((row) => row.fecha)?.fecha || state.fciDateByType[state.fciType] || '—';
+    if (dateEl) dateEl.textContent = `Fecha: ${firstDate}`;
+    setText('fci-page-info', `${state.fciPage} / ${totalPages}`);
+    const prevBtn = document.getElementById('fci-prev');
+    const nextBtn = document.getElementById('fci-next');
+    if (prevBtn) prevBtn.disabled = state.fciPage <= 1;
+    if (nextBtn) nextBtn.disabled = state.fciPage >= totalPages;
+
+    if (!pageRows.length) {
+      rowsEl.innerHTML = '';
+      if (query) emptyEl.textContent = 'No hay resultados para la búsqueda indicada.';
+      else emptyEl.textContent = `No hay datos de ${state.fciType === 'variable' ? 'renta variable' : 'renta fija'} disponibles en este momento.`;
+      emptyEl.style.display = 'block';
+      renderFciBenchmarkInfo();
+      return;
+    }
+
+    emptyEl.style.display = 'none';
+    rowsEl.innerHTML = pageRows.map((row) => `
+      <tr>
+        <td title="${escapeHtml(row.fondo)}">${escapeHtml(row.fondo)}</td>
+        <td>${renderFciTrendValue(row.vcp, row.vcpTrend)}</td>
+        <td>${renderFciTrendValue(row.ccp, row.ccpTrend)}</td>
+        <td>${renderFciTrendValue(row.patrimonio, row.patrimonioTrend)}</td>
+        <td>${escapeHtml(row.horizonte || '—')}</td>
+        <td class="fci-signal-cell">${renderFciSignalBadge(computeFciSignal(row, state.fciType))}</td>
+      </tr>
+    `).join('');
+    saveFciSignalStreaks();
+    renderFciBenchmarkInfo();
+  }
+
+  // 4) Función central fetchAll()
+  async function fetchJson(url) {
+    const ctrl = new AbortController();
+    const timeout = setTimeout(() => ctrl.abort(), 12000);
+    try {
+      const res = await fetch(url, { cache: 'no-store', signal: ctrl.signal });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  async function fetchAll(options = {}) {
+    if (state.isFetching) return;
+    state.isFetching = true;
+    setLoading(NUMERIC_IDS, true);
+    setFreshBadge('Actualizando…', 'fetching');
+    setErrorBanner(false);
+    try {
+      const tasks = [['bundle', ENDPOINTS.bundle]];
+
+      const settled = await Promise.allSettled(tasks.map(async ([name, url]) => {
+        try {
+          const data = await fetchJson(url);
+          return { name, data };
+        } catch (error) {
+          console.error(`[RadarMEP] error en ${name}`, error);
+          throw { name, error };
+        }
+      }));
+
+      const bag = {
+        timestamp: Date.now(),
+        mepCcl: null,
+        fciRentaFija: null,
+        fciRentaFijaPenultimo: null,
+        fciRentaFijaMesBase: null,
+        fciRentaVariable: null,
+        fciRentaVariablePenultimo: null,
+        fciRentaVariableMesBase: null,
+        benchmarkPlazoFijo: null,
+        benchmarkInflacion: null
+      };
+      const failed = [];
+      const bundleResult = settled[0];
+      if (bundleResult.status === 'fulfilled' && bundleResult.value?.data && typeof bundleResult.value.data === 'object') {
+        Object.assign(bag, bundleResult.value.data);
+      } else {
+        failed.push('bundle');
+      }
+
+      const pfData = bag.benchmarkPlazoFijo?.data || {};
+      const infData = bag.benchmarkInflacion?.data || {};
+      state.benchmark = {
+        plazoFijoMonthlyPct: toNumber(pfData?.monthlyPct),
+        inflacionMonthlyPct: toNumber(infData?.monthlyPct),
+        inflacionDate: typeof infData?.date === 'string' ? infData.date : null,
+        updatedAtHumanArt: bag.benchmarkPlazoFijo?.fetchedAtHumanArt || bag.benchmarkInflacion?.fetchedAtHumanArt || null
+      };
+
+      renderMepCcl(bag.mepCcl);
+      if (bag.fciRentaFija || bag.fciRentaFijaPenultimo) {
+        renderFciRentaFija(bag.fciRentaFija, bag.fciRentaFijaPenultimo, 'fija', bag.fciRentaFijaMesBase);
+      }
+      if (bag.fciRentaVariable || bag.fciRentaVariablePenultimo) {
+        renderFciRentaFija(bag.fciRentaVariable, bag.fciRentaVariablePenultimo, 'variable', bag.fciRentaVariableMesBase);
+      }
+      renderFciRentaFija();
+      state.lastMepPayload = bag.mepCcl;
+      renderMetrics24h(bag.mepCcl);
+      renderTrend(bag.mepCcl);
+      renderHistory(bag.mepCcl);
+      const mepRoot = extractRoot(bag.mepCcl);
+      const updatedArt = typeof mepRoot?.updatedAtHumanArt === 'string' ? mepRoot.updatedAtHumanArt : null;
+      const sourceTsMs = toNumber(mepRoot?.sourceStatus?.latestSourceTsMs)
+        ?? toNumber(mepRoot?.current?.mepTsMs)
+        ?? toNumber(mepRoot?.current?.cclTsMs)
+        ?? null;
+      state.sourceTsMs = sourceTsMs;
+      setText('last-run-time', updatedArt || fmtArgTimeSec.format(new Date()));
+      applyDataConfidenceState(mepRoot);
+
+      const successCount = tasks.length - failed.length;
+      if (successCount > 0) {
+        state.lastSuccessAt = Date.now();
+        state.retryIndex = 0;
+        if (state.retryTimer) clearTimeout(state.retryTimer);
+        saveCache(bag);
+        const ageLabel = sourceTsMs != null ? formatSourceAgeLabel(sourceTsMs) : null;
+        const badgeBase = ageLabel ? `Última actualización hace: ${ageLabel}` : 'Mostrando último snapshot válido';
+        if (failed.length) setFreshBadge(`Actualización parcial · ${badgeBase}`, 'idle');
+        else applyDataConfidenceState(mepRoot, { forceBadge: true });
+        refreshFreshBadgeFromSource();
+      } else {
+        const attempt = state.retryIndex + 1;
+        if (state.retryIndex < RETRY_DELAYS.length) {
+          const delay = RETRY_DELAYS[state.retryIndex];
+          state.retryIndex += 1;
+          setFreshBadge(`Error · Reintento en ${Math.round(delay / 1000)}s`, 'error');
+          if (state.retryTimer) clearTimeout(state.retryTimer);
+          state.retryTimer = setTimeout(() => fetchAll({ manual: true }), delay);
+        } else {
+          setFreshBadge('Error · Reintentar', 'error');
+          setErrorBanner(true, 'Error al actualizar · Reintentar');
+          console.error(`[RadarMEP] se agotaron retries (${attempt} intentos)`);
+          if (window.scheduler) window.scheduler.stop();
+        }
+      }
+    } finally {
+      setLoading(NUMERIC_IDS, false);
+      state.isFetching = false;
+    }
+  }
+
+  // 5) Clase MarketScheduler
+  class MarketScheduler {
+    constructor(fetchFn, intervalMs = 300000) {
+      this.fetchFn = fetchFn;
+      this.intervalMs = intervalMs;
+      this.timer = null;
+      this.waitTimer = null;
+      this.countdownTimer = null;
+      this.nextRunAt = null;
+      this.running = false;
+      this.paused = false;
+    }
+
+    start() {
+      if (this.running) return;
+      this.running = true;
+      this.paused = false;
+      if (this.isMarketOpen()) {
+        setMarketTag(true);
+        this._schedule(this.intervalMs);
+      } else {
+        setMarketTag(false);
+        this._waitForOpen();
+      }
+      this._startCountdown();
+    }
+
+    pause() {
+      this.paused = true;
+      clearTimeout(this.timer);
+      clearTimeout(this.waitTimer);
+      this.timer = null;
+      this.waitTimer = null;
+      this._stopCountdown();
+      const countdown = document.getElementById('countdown-text');
+      if (countdown) countdown.textContent = 'Actualización pausada';
+    }
+
+    resume() {
+      if (!this.running) this.running = true;
+      this.paused = false;
+      const continueResume = () => {
+        if (this.isMarketOpen()) {
+          setMarketTag(true);
+          this._schedule(this.intervalMs);
+        } else {
+          setMarketTag(false);
+          this._waitForOpen();
+        }
+        this._startCountdown();
+      };
+      if (Date.now() - state.lastSuccessAt > this.intervalMs) {
+        Promise.resolve(this.fetchFn({ manual: true })).finally(continueResume);
+      } else {
+        continueResume();
+      }
+    }
+
+    stop() {
+      this.running = false;
+      this.paused = false;
+      clearTimeout(this.timer);
+      clearTimeout(this.waitTimer);
+      this.timer = null;
+      this.waitTimer = null;
+      this.nextRunAt = null;
+      this._stopCountdown();
+    }
+
+    isMarketOpen() {
+      const p = getArgNowParts();
+      const businessDay = p.weekday >= 1 && p.weekday <= 5;
+      const seconds = p.hour * 3600 + p.minute * 60 + p.second;
+      const from = 10 * 3600 + 30 * 60;
+      const to = 18 * 3600;
+      return businessDay && seconds >= from && seconds < to;
+    }
+
+    getNextRunTime() {
+      return this.nextRunAt ? new Date(this.nextRunAt) : null;
+    }
+
+    _schedule(delayMs) {
+      if (!this.running || this.paused) return;
+      clearTimeout(this.timer);
+      this.nextRunAt = Date.now() + delayMs;
+      this.timer = setTimeout(async () => {
+        if (!this.running || this.paused) return;
+        if (!this.isMarketOpen()) {
+          setMarketTag(false);
+          this._waitForOpen();
+          return;
+        }
+        setMarketTag(true);
+        await this.fetchFn();
+        this._schedule(this.intervalMs);
+      }, delayMs);
+    }
+
+    _waitForOpen() {
+      if (!this.running || this.paused) return;
+      clearTimeout(this.waitTimer);
+      this.nextRunAt = Date.now() + 60000;
+      this.waitTimer = setTimeout(() => {
+        if (!this.running || this.paused) return;
+        if (this.isMarketOpen()) {
+          setMarketTag(true);
+          this.fetchFn({ manual: true });
+          this._schedule(this.intervalMs);
+        } else {
+          setMarketTag(false);
+          this._waitForOpen();
+        }
+      }, 60000);
+    }
+
+    _startCountdown() {
+      this._stopCountdown();
+      this.countdownTimer = setInterval(() => {
+        const el = document.getElementById('countdown-text');
+        if (!el || this.paused) return;
+        const next = this.getNextRunTime();
+        if (!next) {
+          el.textContent = this.isMarketOpen() ? 'Próxima actualización en —' : 'Mercado cerrado';
+          return;
+        }
+        const diff = Math.max(0, next.getTime() - Date.now());
+        const m = Math.floor(diff / 60000);
+        const s = Math.floor((diff % 60000) / 1000);
+        if (this.isMarketOpen()) el.textContent = `Próxima actualización en ${m}:${String(s).padStart(2, '0')}`;
+        else el.textContent = 'Mercado cerrado';
+      }, 1000);
+    }
+
+    _stopCountdown() {
+      clearInterval(this.countdownTimer);
+      this.countdownTimer = null;
+    }
+  }
+
+  // 6) Lógica de caché
+  function saveCache(data) {
+    try {
+      sessionStorage.setItem(CACHE_KEY, JSON.stringify({
+        timestamp: Date.now(),
+        mepCcl: data.mepCcl,
+        fciRentaFija: data.fciRentaFija,
+        fciRentaFijaPenultimo: data.fciRentaFijaPenultimo,
+        fciRentaFijaMesBase: data.fciRentaFijaMesBase,
+        fciRentaVariable: data.fciRentaVariable,
+        fciRentaVariablePenultimo: data.fciRentaVariablePenultimo,
+        fciRentaVariableMesBase: data.fciRentaVariableMesBase,
+        benchmarkPlazoFijo: data.benchmarkPlazoFijo,
+        benchmarkInflacion: data.benchmarkInflacion
+      }));
+    } catch (e) {
+      console.error('[RadarMEP] no se pudo guardar cache', e);
+    }
+  }
+
+  function loadCache() {
+    try {
+      const raw = sessionStorage.getItem(CACHE_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!parsed.timestamp || Date.now() - parsed.timestamp > CACHE_TTL_MS) return null;
+      return parsed;
+    } catch (e) {
+      console.error('[RadarMEP] cache inválida', e);
+      return null;
+    }
+  }
+
+  function clampDrawerWidth(px) {
+    return Math.max(DRAWER_MIN_W, Math.min(DRAWER_MAX_W, Math.round(px)));
+  }
+  function saveDrawerWidth(px) {
+    try { localStorage.setItem(DRAWER_WIDTH_KEY, String(clampDrawerWidth(px))); } catch {}
+  }
+  function loadDrawerWidth() {
+    try {
+      const raw = Number(localStorage.getItem(DRAWER_WIDTH_KEY));
+      return Number.isFinite(raw) ? clampDrawerWidth(raw) : null;
+    } catch {
+      return null;
+    }
+  }
+  function applyDrawerWidth(px, persist = false) {
+    if (window.innerWidth <= 900) return;
+    const next = clampDrawerWidth(px);
+    document.documentElement.style.setProperty('--drawer-w', `${next}px`);
+    if (persist) saveDrawerWidth(next);
+  }
+  function initDrawerWidth() {
+    const saved = loadDrawerWidth();
+    if (saved !== null) applyDrawerWidth(saved, false);
+  }
+  function bindDrawerResize() {
+    if (state.drawerResizeBound) return;
+    const handle = document.getElementById('drawer-resizer');
+    const drawer = document.getElementById('drawer');
+    if (!handle || !drawer) return;
+    state.drawerResizeBound = true;
+    handle.addEventListener('pointerdown', (event) => {
+      if (window.innerWidth <= 900 || event.button !== 0) return;
+      const startX = event.clientX;
+      const startWidth = drawer.getBoundingClientRect().width;
+      handle.classList.add('active');
+      event.preventDefault();
+      const onMove = (moveEvent) => {
+        const delta = moveEvent.clientX - startX;
+        applyDrawerWidth(startWidth - delta, false);
+      };
+      const onUp = () => {
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+        handle.classList.remove('active');
+        const width = drawer.getBoundingClientRect().width;
+        applyDrawerWidth(width, true);
+      };
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp);
+    });
+  }
+
+  function hideSmartTip() {
+    const tip = document.getElementById('smart-tip');
+    if (!tip) return;
+    tip.classList.remove('show');
+    tip.setAttribute('aria-hidden', 'true');
+  }
+  function showSmartTip(anchor) {
+    const tip = document.getElementById('smart-tip');
+    if (!tip || !anchor) return;
+    const text = anchor.getAttribute('data-t');
+    if (!text) return;
+    tip.textContent = text;
+    tip.classList.add('show');
+    tip.setAttribute('aria-hidden', 'false');
+
+    const margin = 8;
+    const rect = anchor.getBoundingClientRect();
+    const tipRect = tip.getBoundingClientRect();
+    let left = rect.left;
+    if (left + tipRect.width + margin > window.innerWidth) left = window.innerWidth - tipRect.width - margin;
+    if (left < margin) left = margin;
+    let top = rect.bottom + 8;
+    if (top + tipRect.height + margin > window.innerHeight) top = Math.max(margin, rect.top - tipRect.height - 8);
+    tip.style.left = `${Math.round(left)}px`;
+    tip.style.top = `${Math.round(top)}px`;
+  }
+  function initSmartTips() {
+    if (state.smartTipBound) return;
+    state.smartTipBound = true;
+    document.querySelectorAll('.tip.tip-down').forEach((el) => {
+      el.addEventListener('mouseenter', () => showSmartTip(el));
+      el.addEventListener('focus', () => showSmartTip(el));
+      el.addEventListener('click', (event) => {
+        event.preventDefault();
+        showSmartTip(el);
+      });
+      el.addEventListener('mouseleave', hideSmartTip);
+      el.addEventListener('blur', hideSmartTip);
+    });
+    window.addEventListener('scroll', hideSmartTip, true);
+    window.addEventListener('resize', () => {
+      hideSmartTip();
+      initDrawerWidth();
+    });
+    document.addEventListener('click', (event) => {
+      if (!(event.target instanceof Element)) return;
+      if (!event.target.closest('.tip.tip-down') && !event.target.closest('#smart-tip')) hideSmartTip();
+    });
+  }
+
+  // 7) Inicialización
+  startFreshTicker();
+  initDrawerWidth();
+  bindDrawerResize();
+  initSmartTips();
+  function toggleDrawer() {
+    const drawer = document.getElementById('drawer');
+    const wrap = document.getElementById('bodyWrap');
+    const btn = document.getElementById('btnTasas');
+    const ovl = document.getElementById('overlay');
+    const isOpen = drawer.classList.contains('open');
+    drawer.classList.toggle('open', !isOpen);
+    wrap.classList.toggle('drawer-open', !isOpen);
+    btn.classList.toggle('active', !isOpen);
+    ovl.classList.toggle('show', !isOpen);
+  }
+
+  document.querySelectorAll('.pill[data-filter]').forEach((p) => {
+    p.addEventListener('click', () => applyFilter(p.dataset.filter));
+  });
+  const csvBtn = document.getElementById('btn-download-csv');
+  if (csvBtn) csvBtn.addEventListener('click', downloadHistoryCsv);
+  const fciTabFija = document.getElementById('fci-tab-fija');
+  if (fciTabFija) {
+    fciTabFija.addEventListener('click', () => setFciType('fija'));
+  }
+  const fciTabVariable = document.getElementById('fci-tab-variable');
+  if (fciTabVariable) {
+    fciTabVariable.addEventListener('click', () => setFciType('variable'));
+  }
+  const fciSearch = document.getElementById('fci-search');
+  if (fciSearch) {
+    fciSearch.addEventListener('input', () => {
+      state.fciQuery = fciSearch.value || '';
+      state.fciPage = 1;
+      renderFciRentaFija();
+    });
+  }
+  const fciPrev = document.getElementById('fci-prev');
+  if (fciPrev) {
+    fciPrev.addEventListener('click', () => {
+      state.fciPage = Math.max(1, state.fciPage - 1);
+      renderFciRentaFija();
+    });
+  }
+  const fciNext = document.getElementById('fci-next');
+  if (fciNext) {
+    fciNext.addEventListener('click', () => {
+      state.fciPage += 1;
+      renderFciRentaFija();
+    });
+  }
+
+  function toggleGlos() {
+    const grid = document.getElementById('glosGrid');
+    const arrow = document.getElementById('glosArrow');
+    const open = grid.classList.toggle('open');
+    arrow.textContent = open ? '▴' : '▾';
+  }
+
+  const retryBtn = document.getElementById('error-retry-btn');
+  if (retryBtn) {
+    retryBtn.addEventListener('click', () => {
+      if (window.scheduler) window.scheduler.resume();
+      fetchAll({ manual: true });
+    });
+  }
+
+  const cached = loadCache();
+  initHistoryColumnWidths();
+  bindHistoryColumnResize();
+  initFciColumnWidths();
+  bindFciColumnResize();
+  state.fciSignalStreaks = loadFciSignalStreaks();
+  if (cached) {
+    state.lastMepPayload = cached.mepCcl;
+    const pfData = cached.benchmarkPlazoFijo?.data || {};
+    const infData = cached.benchmarkInflacion?.data || {};
+    state.benchmark = {
+      plazoFijoMonthlyPct: toNumber(pfData?.monthlyPct),
+      inflacionMonthlyPct: toNumber(infData?.monthlyPct),
+      inflacionDate: typeof infData?.date === 'string' ? infData.date : null,
+      updatedAtHumanArt: cached.benchmarkPlazoFijo?.fetchedAtHumanArt || cached.benchmarkInflacion?.fetchedAtHumanArt || null
+    };
+    if (cached.fciRentaFija || cached.fciRentaFijaPenultimo || cached.fciRentaFijaMesBase) {
+      renderFciRentaFija(cached.fciRentaFija, cached.fciRentaFijaPenultimo, 'fija', cached.fciRentaFijaMesBase);
+    }
+    if (cached.fciRentaVariable || cached.fciRentaVariablePenultimo || cached.fciRentaVariableMesBase) {
+      renderFciRentaFija(cached.fciRentaVariable, cached.fciRentaVariablePenultimo, 'variable', cached.fciRentaVariableMesBase);
+    }
+    renderFciRentaFija();
+    renderMepCcl(cached.mepCcl);
+    renderMetrics24h(cached.mepCcl);
+    renderTrend(cached.mepCcl);
+    renderHistory(cached.mepCcl);
+    const cachedRoot = extractRoot(cached.mepCcl);
+    state.sourceTsMs = toNumber(cachedRoot?.sourceStatus?.latestSourceTsMs)
+      ?? toNumber(cachedRoot?.current?.mepTsMs)
+      ?? toNumber(cachedRoot?.current?.cclTsMs)
+      ?? null;
+    applyDataConfidenceState(cachedRoot, { forceBadge: true });
+    refreshFreshBadgeFromSource();
+  }
+
+  applyFilter(state.filterMode);
+
+  window.scheduler = new MarketScheduler(fetchAll, FETCH_INTERVAL_MS);
+  window.scheduler.start();
+  fetchAll({ manual: true });
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) window.scheduler.pause();
+    else window.scheduler.resume();
+  });
+</script>
+</body>
+</html>
