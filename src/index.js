@@ -1,3 +1,20 @@
+import {
+  calcSpreadAbs,
+  calcSpreadPctRatio,
+  calcStalenessSeconds,
+  isMarketOpen,
+  isSimilar,
+  toPercent,
+} from "./domain/core.js";
+import { createRequestId, logStructured } from "./observability/log.js";
+import {
+  parseFciSeriesPayload,
+  parseInflacionPayload,
+  parsePlazoFijoPayload,
+} from "./providers/argentinadatos.js";
+import { parseDolaritoHtml } from "./providers/dolarito.js";
+import { ProviderDataError, sanitizeProviderError } from "./providers/errors.js";
+
 const ART_TZ = "America/Argentina/Buenos_Aires";
 const ART_LABEL = "GMT-3 (Buenos Aires)";
 const ART_FORMATTER = new Intl.DateTimeFormat("en-GB", {
@@ -37,6 +54,8 @@ const UX_REDESIGN_DATE = "2026-02-26";
 const MAX_HISTORY_ITEMS = 4000;
 const THRESHOLDS = {
   maxAbsDiffArs: 12,
+  maxSpreadPctRatio: 0.01,
+  maxSpreadPctPercent: 1.0,
   maxPctDiff: 1.0,
 };
 const DEFAULT_ALERT_COOLDOWN_MINUTES = 120;
@@ -45,15 +64,30 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const path = url.pathname;
+    const requestId = createRequestId(request.headers.get("x-request-id"));
+    const routeStartedAt = Date.now();
+    const respond = (response, { provider = "worker_route", outcome = "ok", errorType = null, snapshotTimestamp = null } = {}) => {
+      response.headers.set("X-Request-Id", requestId);
+      logStructured({
+        requestId,
+        route: path,
+        provider,
+        latencyMs: Date.now() - routeStartedAt,
+        outcome,
+        errorType,
+        snapshotTimestamp,
+      });
+      return response;
+    };
 
     if (path === "/" || path === "/dashboard.html") {
-      return htmlResponse(renderDashboardHtml());
+      return respond(htmlResponse(renderDashboardHtml()), { provider: "dashboard_html" });
     }
 
     if (path === "/api/data") {
       let state = normalizeState(await loadState(env));
       if (!state || !isUsableState(state)) {
-        state = await runUpdate(env);
+        state = await runUpdate(env, { requestId, route: path });
       }
       if (!state.history?.length) {
         const recoveredHistory = await loadHistory(env);
@@ -62,106 +96,146 @@ export default {
           state.metrics24h = computeMetrics24h(recoveredHistory, Math.floor(Date.now() / 1000));
         }
       }
-      return jsonResponse(decorateOperationalState(state), false);
+      const decorated = decorateOperationalState(state);
+      return respond(jsonResponse(decorated, false), {
+        provider: "api_data",
+        snapshotTimestamp: decorated?.updatedAtIso || null,
+      });
     }
 
     if (path === "/api/health") {
       const state = await loadState(env);
-      return jsonResponse(
+      return respond(jsonResponse(
         {
           ok: Boolean(state),
           updatedAtHumanArt: state?.updatedAtHumanArt || null,
           sourceStatus: state?.sourceStatus || null,
         },
         false,
-      );
+      ), {
+        provider: "api_health",
+        snapshotTimestamp: state?.updatedAtIso || null,
+      });
     }
 
     if (path === "/api/fci/renta-fija/ultimo") {
       let payload = await loadFciPayload(env, FCI_LAST_KEY);
       if (!payload) {
-        await refreshFciRentaFijaData(env);
+        await safeRefresh(() => refreshFciRentaFijaData(env, { requestId, route: path }));
         payload = await loadFciPayload(env, FCI_LAST_KEY);
       }
-      return jsonResponse(payload || buildEmptyFciPayload("ultimo"), false);
+      return respond(jsonResponse(payload || buildEmptyFciPayload("ultimo"), false), {
+        provider: "fci_renta_fija_ultimo",
+        snapshotTimestamp: payload?.fetchedAtIso || null,
+      });
     }
 
     if (path === "/api/fci/renta-fija/penultimo") {
       let payload = await loadFciPayload(env, FCI_PREV_KEY);
       if (!payload) {
-        await refreshFciRentaFijaData(env);
+        await safeRefresh(() => refreshFciRentaFijaData(env, { requestId, route: path }));
         payload = await loadFciPayload(env, FCI_PREV_KEY);
       }
-      return jsonResponse(payload || buildEmptyFciPayload("penultimo"), false);
+      return respond(jsonResponse(payload || buildEmptyFciPayload("penultimo"), false), {
+        provider: "fci_renta_fija_penultimo",
+        snapshotTimestamp: payload?.fetchedAtIso || null,
+      });
     }
 
     if (path === "/api/fci/renta-fija/mes-base") {
       let payload = await loadFciPayload(env, FCI_BASE30_KEY);
       if (!payload) {
-        await refreshFciRentaFijaData(env);
+        await safeRefresh(() => refreshFciRentaFijaData(env, { requestId, route: path }));
         payload = await loadFciPayload(env, FCI_BASE30_KEY);
       }
-      return jsonResponse(payload || buildEmptyFciPayload("base30"), false);
+      return respond(jsonResponse(payload || buildEmptyFciPayload("base30"), false), {
+        provider: "fci_renta_fija_base30",
+        snapshotTimestamp: payload?.fetchedAtIso || null,
+      });
     }
 
     if (path === "/api/fci/status") {
       const status = await loadFciStatus(env);
-      return jsonResponse(status || buildEmptyFciStatus(), false);
+      return respond(jsonResponse(status || buildEmptyFciStatus(), false), {
+        provider: "fci_renta_fija_status",
+        snapshotTimestamp: status?.updatedAtIso || null,
+      });
     }
 
     if (path === "/api/fci/renta-variable/ultimo") {
       let payload = await loadFciPayload(env, FCI_RV_LAST_KEY);
       if (!payload) {
-        await refreshFciRentaVariableData(env);
+        await safeRefresh(() => refreshFciRentaVariableData(env, { requestId, route: path }));
         payload = await loadFciPayload(env, FCI_RV_LAST_KEY);
       }
-      return jsonResponse(payload || buildEmptyFciPayload("ultimo"), false);
+      return respond(jsonResponse(payload || buildEmptyFciPayload("ultimo"), false), {
+        provider: "fci_renta_variable_ultimo",
+        snapshotTimestamp: payload?.fetchedAtIso || null,
+      });
     }
 
     if (path === "/api/fci/renta-variable/penultimo") {
       let payload = await loadFciPayload(env, FCI_RV_PREV_KEY);
       if (!payload) {
-        await refreshFciRentaVariableData(env);
+        await safeRefresh(() => refreshFciRentaVariableData(env, { requestId, route: path }));
         payload = await loadFciPayload(env, FCI_RV_PREV_KEY);
       }
-      return jsonResponse(payload || buildEmptyFciPayload("penultimo"), false);
+      return respond(jsonResponse(payload || buildEmptyFciPayload("penultimo"), false), {
+        provider: "fci_renta_variable_penultimo",
+        snapshotTimestamp: payload?.fetchedAtIso || null,
+      });
     }
 
     if (path === "/api/fci/renta-variable/mes-base") {
       let payload = await loadFciPayload(env, FCI_RV_BASE30_KEY);
       if (!payload) {
-        await refreshFciRentaVariableData(env);
+        await safeRefresh(() => refreshFciRentaVariableData(env, { requestId, route: path }));
         payload = await loadFciPayload(env, FCI_RV_BASE30_KEY);
       }
-      return jsonResponse(payload || buildEmptyFciPayload("base30"), false);
+      return respond(jsonResponse(payload || buildEmptyFciPayload("base30"), false), {
+        provider: "fci_renta_variable_base30",
+        snapshotTimestamp: payload?.fetchedAtIso || null,
+      });
     }
 
     if (path === "/api/fci/renta-variable/status") {
       const status = await loadFciStatus(env, FCI_RV_STATE_KEY);
-      return jsonResponse(status || buildEmptyFciStatus(), false);
+      return respond(jsonResponse(status || buildEmptyFciStatus(), false), {
+        provider: "fci_renta_variable_status",
+        snapshotTimestamp: status?.updatedAtIso || null,
+      });
     }
 
     if (path === "/api/benchmark/plazo-fijo") {
       let payload = await loadFciPayload(env, PLAZO_FIJO_BENCH_KEY);
       if (!payload) {
-        await refreshBenchmarkData(env);
+        await safeRefresh(() => refreshBenchmarkData(env, { requestId, route: path }));
         payload = await loadFciPayload(env, PLAZO_FIJO_BENCH_KEY);
       }
-      return jsonResponse(payload || buildEmptyBenchmarkPayload("plazo_fijo"), false);
+      return respond(jsonResponse(payload || buildEmptyBenchmarkPayload("plazo_fijo"), false), {
+        provider: "benchmark_plazo_fijo",
+        snapshotTimestamp: payload?.fetchedAtIso || null,
+      });
     }
 
     if (path === "/api/benchmark/inflacion") {
       let payload = await loadFciPayload(env, INFLACION_BENCH_KEY);
       if (!payload) {
-        await refreshBenchmarkData(env);
+        await safeRefresh(() => refreshBenchmarkData(env, { requestId, route: path }));
         payload = await loadFciPayload(env, INFLACION_BENCH_KEY);
       }
-      return jsonResponse(payload || buildEmptyBenchmarkPayload("inflacion"), false);
+      return respond(jsonResponse(payload || buildEmptyBenchmarkPayload("inflacion"), false), {
+        provider: "benchmark_inflacion",
+        snapshotTimestamp: payload?.fetchedAtIso || null,
+      });
     }
 
     if (path === "/api/benchmark/status") {
       const status = await loadFciPayload(env, BENCHMARK_STATE_KEY);
-      return jsonResponse(status || buildEmptyBenchmarkStatus(), false);
+      return respond(jsonResponse(status || buildEmptyBenchmarkStatus(), false), {
+        provider: "benchmark_status",
+        snapshotTimestamp: status?.updatedAtIso || null,
+      });
     }
 
     if (path === "/api/bundle") {
@@ -169,45 +243,73 @@ export default {
       if (!bundle) {
         bundle = await refreshApiBundle(env);
       }
-      return jsonResponse(bundle || buildEmptyApiBundle(), false);
+      return respond(jsonResponse(bundle || buildEmptyApiBundle(), false), {
+        provider: "api_bundle",
+        snapshotTimestamp: bundle?.mepCcl?.updatedAtIso || null,
+      });
     }
 
     if (path === "/api/snapshots") {
       const snapshots = await listSnapshots(env, 60);
-      return jsonResponse({ count: snapshots.length, snapshots }, false);
+      return respond(jsonResponse({ count: snapshots.length, snapshots }, false), {
+        provider: "api_snapshots",
+      });
     }
 
     if (path === "/api/recovery-check") {
       const state = normalizeState(await loadState(env));
       const history = state?.history?.length ? state.history : await loadHistory(env);
       const snapshots = await listSnapshots(env, 365);
-      return jsonResponse(buildRecoveryCheck(history, snapshots), false);
+      return respond(jsonResponse(buildRecoveryCheck(history, snapshots), false), {
+        provider: "api_recovery_check",
+        snapshotTimestamp: state?.updatedAtIso || null,
+      });
     }
 
     if (path === "/favicon.ico") {
-      return new Response(null, { status: 204 });
+      return respond(new Response(null, { status: 204 }), {
+        provider: "favicon",
+      });
     }
 
-    return new Response("Not Found", { status: 404 });
+    return respond(new Response("Not Found", { status: 404 }), {
+      provider: "route_not_found",
+      outcome: "fail",
+      errorType: "unknown",
+    });
   },
 
   async scheduled(event, env, ctx) {
     const tickDate = getScheduledDate(event);
-    const tasks = [runUpdate(env)];
+    const requestId = createRequestId(`scheduled_${String(event?.scheduledTime || Date.now())}`);
+    const route = "scheduled";
+    const tasks = [runUpdate(env, { requestId, route })];
 
     // FCI: hourly during the 5-minute cron window.
     if (shouldRefreshFciOnTick(tickDate)) {
-      tasks.push(refreshFciRentaFijaData(env), refreshFciRentaVariableData(env));
+      tasks.push(
+        refreshFciRentaFijaData(env, { requestId, route }),
+        refreshFciRentaVariableData(env, { requestId, route }),
+      );
     }
 
     // Benchmarks: once per business day at first market tick (13:30 UTC / 10:30 ART).
     if (shouldRefreshBenchmarkOnTick(tickDate)) {
-      tasks.push(refreshBenchmarkData(env));
+      tasks.push(refreshBenchmarkData(env, { requestId, route }));
     }
 
     ctx.waitUntil((async () => {
       await Promise.allSettled(tasks);
       await refreshApiBundle(env);
+      logStructured({
+        requestId,
+        route,
+        provider: "scheduled_tick",
+        latencyMs: 0,
+        outcome: "ok",
+        errorType: null,
+        snapshotTimestamp: new Date().toISOString(),
+      });
     })());
   },
 };
@@ -228,7 +330,20 @@ function shouldRefreshBenchmarkOnTick(date) {
   return date.getUTCHours() === 13 && date.getUTCMinutes() === 30;
 }
 
-async function runUpdate(env) {
+async function safeRefresh(taskFn) {
+  try {
+    await taskFn();
+  } catch (error) {
+    console.log(JSON.stringify({
+      level: "warn",
+      event: "refresh_fallback",
+      error: sanitizeError(error),
+      at: new Date().toISOString(),
+    }));
+  }
+}
+
+async function runUpdate(env, context = {}) {
   const now = new Date();
   const nowEpoch = Math.floor(now.getTime() / 1000);
 
@@ -248,20 +363,24 @@ async function runUpdate(env) {
   };
 
   try {
-    const html = await fetchSourceHtml(SOURCE_URL);
-    const mep = extractNumber(html, "mep", "sell");
-    const ccl = extractNumber(html, "ccl", "sell");
-    const mepTs = extractInt(html, "mep", "timestamp");
-    const cclTs = extractInt(html, "ccl", "timestamp");
+    const html = await fetchSourceHtml(SOURCE_URL, {
+      ...context,
+      provider: "dolarito_html",
+      snapshotTimestamp: next.updatedAtIso,
+    });
+    const parsed = parseDolaritoHtml(html, "dolarito_html");
+    const mep = parsed.mepSell;
+    const ccl = parsed.cclSell;
+    const mepTs = parsed.mepTimestampMs;
+    const cclTs = parsed.cclTimestampMs;
 
-    if (!Number.isFinite(mep) || !Number.isFinite(ccl)) {
-      throw new Error("No se pudo parsear MEP/CCL en la fuente");
-    }
-
-    const absDiff = round2(Math.abs(mep - ccl));
-    const avg = (mep + ccl) / 2;
-    const pctDiff = round2(avg > 0 ? (absDiff / avg) * 100 : 0);
-    const similar = absDiff <= THRESHOLDS.maxAbsDiffArs || pctDiff <= THRESHOLDS.maxPctDiff;
+    const spreadAbsArs = round2(calcSpreadAbs(mep, ccl));
+    const spreadPctRatio = calcSpreadPctRatio(mep, ccl);
+    const spreadPctPercent = round2(toPercent(spreadPctRatio));
+    const similar = isSimilar(mep, ccl, {
+      pctThreshold: THRESHOLDS.maxSpreadPctRatio,
+      absThreshold: THRESHOLDS.maxAbsDiffArs,
+    });
 
     const history = Array.isArray(previous.history) ? previous.history.slice() : [];
     history.push({
@@ -269,8 +388,11 @@ async function runUpdate(env) {
       label: formatArtDate(now),
       mep: round2(mep),
       ccl: round2(ccl),
-      abs_diff: absDiff,
-      pct_diff: pctDiff,
+      abs_diff: spreadAbsArs,
+      spread_abs_ars: spreadAbsArs,
+      pct_diff: spreadPctPercent,
+      spread_pct_percent: spreadPctPercent,
+      spread_pct_ratio: Number.isFinite(spreadPctRatio) ? spreadPctRatio : null,
       similar,
     });
 
@@ -283,8 +405,11 @@ async function runUpdate(env) {
     next.current = {
       mep: round2(mep),
       ccl: round2(ccl),
-      absDiff,
-      pctDiff,
+      absDiff: spreadAbsArs,
+      spreadAbsArs,
+      pctDiff: spreadPctPercent,
+      spreadPctPercent,
+      spreadPctRatio: Number.isFinite(spreadPctRatio) ? spreadPctRatio : null,
       similar,
       mepTsMs: mepTs,
       cclTsMs: cclTs,
@@ -299,12 +424,15 @@ async function runUpdate(env) {
       freshWarn: freshness.warn,
       sourceAgeMinutes: freshness.ageMinutes,
       latestSourceTsMs: freshness.latestTsMs,
+      stalenessSeconds: freshness.stalenessSeconds,
     };
     next.status = deriveStatus(true, similar);
     next.operational = {
       ...(previous.operational || {}),
       lastSuccessAtHumanArt: formatArtDate(now),
       lastSuccessAtIso: now.toISOString(),
+      dataConfidence: deriveDataConfidence(true, freshness.stalenessSeconds),
+      stalenessSeconds: freshness.stalenessSeconds,
       nextRunAtHumanArt: formatArtDate(computeNextScheduledRun(new Date(now.getTime() + 60 * 1000))),
     };
     next.alerting = await maybeSendSimilarEmailAlert(env, previous, next, now, nowEpoch);
@@ -314,6 +442,9 @@ async function runUpdate(env) {
     const trimmedHistory = Array.isArray(previous.history) ? previous.history.slice(-MAX_HISTORY_ITEMS) : [];
     const metrics24h = computeMetrics24h(trimmedHistory, nowEpoch);
     const freshness = computeFreshness(previous?.current?.mepTsMs, previous?.current?.cclTsMs, nowEpoch);
+    const safeError = error instanceof ProviderDataError ? error : null;
+    const errorDetails = safeError ? sanitizeProviderError(safeError) : null;
+    const hasSnapshot = Boolean(previous?.current);
 
     next.history = trimmedHistory;
     next.metrics24h = metrics24h;
@@ -321,15 +452,18 @@ async function runUpdate(env) {
     next.sourceStatus = {
       ok: false,
       text: "ERROR DE FUENTE",
-      error: sanitizeError(error),
+      error: errorDetails || sanitizeError(error),
       freshLabel: freshness.label,
       freshWarn: freshness.warn,
       sourceAgeMinutes: freshness.ageMinutes,
       latestSourceTsMs: freshness.latestTsMs,
+      stalenessSeconds: freshness.stalenessSeconds,
     };
     next.status = deriveStatus(false, Boolean(previous?.current?.similar));
     next.operational = {
       ...(previous.operational || {}),
+      dataConfidence: deriveDataConfidence(hasSnapshot, freshness.stalenessSeconds),
+      stalenessSeconds: freshness.stalenessSeconds,
       nextRunAtHumanArt: formatArtDate(computeNextScheduledRun(new Date(now.getTime() + 60 * 1000))),
     };
     next.alerting = {
@@ -338,7 +472,7 @@ async function runUpdate(env) {
       lastRunAtHumanArt: formatArtDate(now),
       lastDecision: "skip_source_error",
     };
-    next.lastError = sanitizeError(error);
+    next.lastError = errorDetails || sanitizeError(error);
     next.lastErrorAtIso = now.toISOString();
   }
 
@@ -531,23 +665,8 @@ async function loadFciStatus(env, key = FCI_STATE_KEY) {
   }
 }
 
-function normalizeFciRows(payload) {
-  if (Array.isArray(payload)) return payload;
-  if (payload && typeof payload === "object") {
-    if (Array.isArray(payload.data)) return payload.data;
-    if (Array.isArray(payload.items)) return payload.items;
-    if (Array.isArray(payload.rows)) return payload.rows;
-    if (payload.result && typeof payload.result === "object") {
-      if (Array.isArray(payload.result.data)) return payload.result.data;
-      if (Array.isArray(payload.result.items)) return payload.result.items;
-      if (Array.isArray(payload.result.rows)) return payload.result.rows;
-    }
-  }
-  return [];
-}
-
 function normalizeFciPayload(kind, sourcePayload, now) {
-  const rows = normalizeFciRows(sourcePayload);
+  const rows = parseFciSeriesPayload(sourcePayload, "argentinadatos_fci");
   const firstDate = rows.find((row) => row && typeof row === "object" && row.fecha)?.fecha || null;
   return {
     source: "argentinadatos",
@@ -560,7 +679,17 @@ function normalizeFciPayload(kind, sourcePayload, now) {
   };
 }
 
-async function fetchJsonSource(url, timeoutMs = 25000) {
+async function fetchJsonSource(
+  url,
+  {
+    provider = "argentinadatos",
+    timeoutMs = 25000,
+    requestId = null,
+    route = "unknown",
+    snapshotTimestamp = null,
+  } = {},
+) {
+  const startedAt = Date.now();
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -572,9 +701,40 @@ async function fetchJsonSource(url, timeoutMs = 25000) {
       },
     });
     if (!response.ok) {
-      throw new Error(`Fuente FCI respondió ${response.status}`);
+      throw new ProviderDataError({
+        provider,
+        errorType: "fetch",
+        message: `Fuente ${provider} respondió ${response.status}`,
+      });
     }
-    return await response.json();
+    const payload = await response.json();
+    logStructured({
+      requestId,
+      route,
+      provider,
+      latencyMs: Date.now() - startedAt,
+      outcome: "ok",
+      errorType: null,
+      snapshotTimestamp,
+    });
+    return payload;
+  } catch (error) {
+    const providerError = error instanceof ProviderDataError ? error : new ProviderDataError({
+      provider,
+      errorType: "fetch",
+      message: sanitizeError(error),
+      cause: error,
+    });
+    logStructured({
+      requestId,
+      route,
+      provider,
+      latencyMs: Date.now() - startedAt,
+      outcome: "fail",
+      errorType: providerError.errorType,
+      snapshotTimestamp,
+    });
+    throw providerError;
   } finally {
     clearTimeout(timeoutId);
   }
@@ -650,7 +810,7 @@ function normalizePercentValue(value) {
 }
 
 function computePlazoFijoBenchmark(sourcePayload, now) {
-  const rows = normalizeFciRows(sourcePayload)
+  const rows = parsePlazoFijoPayload(sourcePayload, "argentinadatos_plazo_fijo")
     .map((item) => {
       const banco = String(item?.entidad || item?.banco || item?.nombre || "").trim();
       const tnaClientesPct = normalizePercentValue(item?.tnaClientes);
@@ -677,7 +837,7 @@ function computePlazoFijoBenchmark(sourcePayload, now) {
 }
 
 function computeInflacionBenchmark(sourcePayload, now) {
-  const rows = normalizeFciRows(sourcePayload)
+  const rows = parseInflacionPayload(sourcePayload, "argentinadatos_inflacion")
     .map((item) => {
       const fecha = String(item?.fecha || item?.date || "").trim();
       const valorPct = normalizePercentValue(item?.valor);
@@ -704,11 +864,11 @@ function computeInflacionBenchmark(sourcePayload, now) {
   };
 }
 
-async function refreshBenchmarkData(env) {
+async function refreshBenchmarkData(env, context = {}) {
   const now = new Date();
   const [pfRes, infRes] = await Promise.allSettled([
-    fetchJsonSource(PLAZO_FIJO_API_URL),
-    fetchJsonSource(INFLACION_API_URL),
+    fetchJsonSource(PLAZO_FIJO_API_URL, { provider: "argentinadatos_plazo_fijo", ...context }),
+    fetchJsonSource(INFLACION_API_URL, { provider: "argentinadatos_inflacion", ...context }),
   ]);
 
   let pfPayload = await loadFciPayload(env, PLAZO_FIJO_BENCH_KEY);
@@ -717,17 +877,25 @@ async function refreshBenchmarkData(env) {
   let okCount = 0;
 
   if (pfRes.status === "fulfilled") {
-    pfPayload = computePlazoFijoBenchmark(pfRes.value, now);
-    await env.MONITOR_KV.put(PLAZO_FIJO_BENCH_KEY, JSON.stringify(pfPayload));
-    okCount += 1;
+    try {
+      pfPayload = computePlazoFijoBenchmark(pfRes.value, now);
+      await env.MONITOR_KV.put(PLAZO_FIJO_BENCH_KEY, JSON.stringify(pfPayload));
+      okCount += 1;
+    } catch (error) {
+      lastError = sanitizeError(error);
+    }
   } else {
     lastError = sanitizeError(pfRes.reason);
   }
 
   if (infRes.status === "fulfilled") {
-    infPayload = computeInflacionBenchmark(infRes.value, now);
-    await env.MONITOR_KV.put(INFLACION_BENCH_KEY, JSON.stringify(infPayload));
-    okCount += 1;
+    try {
+      infPayload = computeInflacionBenchmark(infRes.value, now);
+      await env.MONITOR_KV.put(INFLACION_BENCH_KEY, JSON.stringify(infPayload));
+      okCount += 1;
+    } catch (error) {
+      lastError = sanitizeError(error);
+    }
   } else {
     lastError = sanitizeError(infRes.reason);
   }
@@ -746,7 +914,7 @@ async function refreshBenchmarkData(env) {
   return { plazoFijo: pfPayload, inflacion: infPayload, status };
 }
 
-async function refreshFciSeriesData(env, config) {
+async function refreshFciSeriesData(env, config, context = {}) {
   const now = new Date();
   const urls = {
     ultimo: `${config.apiBase}/ultimo`,
@@ -759,21 +927,31 @@ async function refreshFciSeriesData(env, config) {
   let lastError = null;
 
   const [ultimoRes, penultimoRes] = await Promise.allSettled([
-    fetchJsonSource(urls.ultimo),
-    fetchJsonSource(urls.penultimo),
+    fetchJsonSource(urls.ultimo, { provider: `${config.stateKey}_ultimo`, ...context }),
+    fetchJsonSource(urls.penultimo, { provider: `${config.stateKey}_penultimo`, ...context }),
   ]);
 
   if (ultimoRes.status === "fulfilled") {
-    ultimoPayload = normalizeFciPayload("ultimo", ultimoRes.value, now);
-    await env.MONITOR_KV.put(config.lastKey, JSON.stringify(ultimoPayload));
+    try {
+      ultimoPayload = normalizeFciPayload("ultimo", ultimoRes.value, now);
+      await env.MONITOR_KV.put(config.lastKey, JSON.stringify(ultimoPayload));
+    } catch (error) {
+      errorCount += 1;
+      lastError = sanitizeError(error);
+    }
   } else {
     errorCount += 1;
     lastError = sanitizeError(ultimoRes.reason);
   }
 
   if (penultimoRes.status === "fulfilled") {
-    penultimoPayload = normalizeFciPayload("penultimo", penultimoRes.value, now);
-    await env.MONITOR_KV.put(config.prevKey, JSON.stringify(penultimoPayload));
+    try {
+      penultimoPayload = normalizeFciPayload("penultimo", penultimoRes.value, now);
+      await env.MONITOR_KV.put(config.prevKey, JSON.stringify(penultimoPayload));
+    } catch (error) {
+      errorCount += 1;
+      lastError = sanitizeError(error);
+    }
   } else {
     errorCount += 1;
     lastError = sanitizeError(penultimoRes.reason);
@@ -791,7 +969,10 @@ async function refreshFciSeriesData(env, config) {
   let baseDateUsed = null;
   for (const candidate of baseCandidates) {
     try {
-      const data = await fetchJsonSource(`${config.apiBase}/${candidate}`);
+      const data = await fetchJsonSource(`${config.apiBase}/${candidate}`, {
+        provider: `${config.stateKey}_base30`,
+        ...context,
+      });
       base30Payload = normalizeFciPayload("base30", data, now);
       base30Payload.baseDate = candidate;
       base30Payload.baseTargetDate = baseTargetStr;
@@ -830,7 +1011,7 @@ async function refreshFciSeriesData(env, config) {
   return { ultimo: ultimoPayload, penultimo: penultimoPayload, base30: base30Payload, status };
 }
 
-async function refreshFciRentaFijaData(env) {
+async function refreshFciRentaFijaData(env, context = {}) {
   return refreshFciSeriesData(env, {
     apiBase: FCI_RF_API_BASE,
     lastKey: FCI_LAST_KEY,
@@ -838,10 +1019,10 @@ async function refreshFciRentaFijaData(env) {
     base30Key: FCI_BASE30_KEY,
     stateKey: FCI_STATE_KEY,
     snapshotPrefix: FCI_SNAPSHOT_PREFIX,
-  });
+  }, context);
 }
 
-async function refreshFciRentaVariableData(env) {
+async function refreshFciRentaVariableData(env, context = {}) {
   return refreshFciSeriesData(env, {
     apiBase: FCI_RV_API_BASE,
     lastKey: FCI_RV_LAST_KEY,
@@ -849,7 +1030,7 @@ async function refreshFciRentaVariableData(env) {
     base30Key: FCI_RV_BASE30_KEY,
     stateKey: FCI_RV_STATE_KEY,
     snapshotPrefix: FCI_RV_SNAPSHOT_PREFIX,
-  });
+  }, context);
 }
 
 function buildRecoveryCheck(history, snapshots) {
@@ -931,6 +1112,7 @@ function buildEmptyState(now) {
       freshWarn: false,
       sourceAgeMinutes: null,
       latestSourceTsMs: null,
+      stalenessSeconds: null,
     },
     current: null,
     metrics24h: {
@@ -943,6 +1125,8 @@ function buildEmptyState(now) {
     operational: {
       lastSuccessAtHumanArt: null,
       lastSuccessAtIso: null,
+      dataConfidence: "NO_DATA",
+      stalenessSeconds: null,
       nextRunAtHumanArt: formatArtDate(computeNextScheduledRun(new Date(now.getTime() + 60 * 1000))),
     },
     alerting: {
@@ -964,10 +1148,23 @@ function buildEmptyState(now) {
 
 function decorateOperationalState(state) {
   const now = new Date();
+  const nowEpoch = Math.floor(now.getTime() / 1000);
+  const freshness = computeFreshness(state?.current?.mepTsMs, state?.current?.cclTsMs, nowEpoch);
+  const hasValidSnapshot = Boolean(state?.current);
   return {
     ...state,
+    sourceStatus: {
+      ...(state.sourceStatus || {}),
+      freshLabel: freshness.label,
+      freshWarn: freshness.warn,
+      sourceAgeMinutes: freshness.ageMinutes,
+      latestSourceTsMs: freshness.latestTsMs,
+      stalenessSeconds: freshness.stalenessSeconds,
+    },
     operational: {
       ...(state.operational || {}),
+      dataConfidence: deriveDataConfidence(hasValidSnapshot, freshness.stalenessSeconds),
+      stalenessSeconds: freshness.stalenessSeconds,
       nextRunAtHumanArt: formatArtDate(computeNextScheduledRun(new Date(now.getTime() + 60 * 1000))),
     },
   };
@@ -1100,7 +1297,9 @@ async function maybeSendSimilarEmailAlert(env, previousState, nextState, now, no
   }
 }
 
-async function fetchSourceHtml(url) {
+async function fetchSourceHtml(url, context = {}) {
+  const startedAt = Date.now();
+  const provider = context.provider || "dolarito_html";
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 25000);
   try {
@@ -1112,37 +1311,47 @@ async function fetchSourceHtml(url) {
       },
     });
     if (!response.ok) {
-      throw new Error(`Fuente respondió ${response.status}`);
+      throw new ProviderDataError({
+        provider,
+        errorType: "fetch",
+        message: `Fuente ${provider} respondió ${response.status}`,
+      });
     }
-    return await response.text();
+    const html = await response.text();
+    logStructured({
+      requestId: context.requestId || null,
+      route: context.route || "unknown",
+      provider,
+      latencyMs: Date.now() - startedAt,
+      outcome: "ok",
+      errorType: null,
+      snapshotTimestamp: context.snapshotTimestamp || null,
+    });
+    return html;
+  } catch (error) {
+    const providerError = error instanceof ProviderDataError ? error : new ProviderDataError({
+      provider,
+      errorType: "fetch",
+      message: sanitizeError(error),
+      cause: error,
+    });
+    logStructured({
+      requestId: context.requestId || null,
+      route: context.route || "unknown",
+      provider,
+      latencyMs: Date.now() - startedAt,
+      outcome: "fail",
+      errorType: providerError.errorType,
+      snapshotTimestamp: context.snapshotTimestamp || null,
+    });
+    throw providerError;
   } finally {
     clearTimeout(timeoutId);
   }
 }
 
-function extractNumber(html, key, field) {
-  const re = new RegExp(
-    String.raw`\\?"${key}\\?":\\?\{[\s\S]*?\\?"${field}\\?":([0-9]+(?:\.[0-9]+)?)`,
-    "i",
-  );
-  const match = html.match(re);
-  return match ? Number(match[1]) : Number.NaN;
-}
-
-function extractInt(html, key, field) {
-  const re = new RegExp(
-    String.raw`\\?"${key}\\?":\\?\{[\s\S]*?\\?"${field}\\?":([0-9]{10,})`,
-    "i",
-  );
-  const match = html.match(re);
-  return match ? Number(match[1]) : null;
-}
-
 function getMarketStatus(date) {
-  const parts = getArtParts(date);
-  const hhmm = parts.hour * 100 + parts.minute;
-  const isWeekday = parts.weekday >= 1 && parts.weekday <= 5;
-  const isOpen = isWeekday && hhmm >= 1030 && hhmm < 1800;
+  const isOpen = isMarketOpen(date, ART_TZ, "10:30", "18:00", true);
   return {
     status: isOpen ? "ABIERTO" : "CERRADO",
     isOpen,
@@ -1152,19 +1361,29 @@ function getMarketStatus(date) {
 
 function computeFreshness(mepTsMs, cclTsMs, nowEpoch) {
   const candidates = [mepTsMs, cclTsMs].filter((v) => Number.isFinite(v));
+  const now = new Date(nowEpoch * 1000);
   if (!candidates.length) {
-    return { label: "N/D", warn: false, ageMinutes: null, latestTsMs: null };
+    return { label: "N/D", warn: false, ageMinutes: null, latestTsMs: null, stalenessSeconds: null };
   }
 
   const latestTsMs = Math.max(...candidates);
-  const ageMinutes = Math.max(0, Math.floor((nowEpoch - latestTsMs / 1000) / 60));
-  const label = ageMinutes < 60 ? `${ageMinutes} min` : `${(ageMinutes / 60).toFixed(1)} h`;
+  const stalenessSeconds = calcStalenessSeconds(now, new Date(latestTsMs));
+  const ageMinutes = Number.isFinite(stalenessSeconds) ? Math.max(0, Math.floor(stalenessSeconds / 60)) : null;
+  const label = ageMinutes === null ? "N/D" : ageMinutes < 60 ? `${ageMinutes} min` : `${(ageMinutes / 60).toFixed(1)} h`;
   return {
     label,
     warn: ageMinutes > 60,
     ageMinutes,
     latestTsMs,
+    stalenessSeconds,
   };
+}
+
+function deriveDataConfidence(hasValidSnapshot, stalenessSeconds) {
+  if (!hasValidSnapshot) return "NO_DATA";
+  if (!Number.isFinite(stalenessSeconds)) return "DELAYED";
+  if (stalenessSeconds <= 10 * 60) return "OK";
+  return "DELAYED";
 }
 
 function computeMetrics24h(history, nowEpoch) {
@@ -1174,7 +1393,9 @@ function computeMetrics24h(history, nowEpoch) {
     return { count: 0, similarCount: 0, minPct: null, maxPct: null, avgPct: null };
   }
 
-  const pctValues = rows.map((r) => Number(r.pct_diff)).filter((v) => Number.isFinite(v));
+  const pctValues = rows
+    .map((r) => Number(r.spread_pct_percent ?? r.pct_diff))
+    .filter((v) => Number.isFinite(v));
   const similarCount = rows.filter((r) => Boolean(r.similar)).length;
   const sum = pctValues.reduce((acc, v) => acc + v, 0);
 
