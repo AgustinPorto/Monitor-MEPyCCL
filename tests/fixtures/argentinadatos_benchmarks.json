@@ -1,0 +1,26 @@
+{
+  "plazoFijo": {
+    "data": [
+      {
+        "entidad": "Banco Uno",
+        "tnaClientes": "32.5"
+      },
+      {
+        "banco": "Banco Dos",
+        "tnaClientes": 31.4
+      }
+    ]
+  },
+  "inflacion": {
+    "data": [
+      {
+        "fecha": "2026-01",
+        "valor": "2.1"
+      },
+      {
+        "date": "2026-02",
+        "valor": 2.3
+      }
+    ]
+  }
+}

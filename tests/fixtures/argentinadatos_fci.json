@@ -1,0 +1,18 @@
+{
+  "data": [
+    {
+      "fecha": "2026-02-27",
+      "fondo": "FCI Alpha",
+      "vcp": 134.55,
+      "ccp": 1220.1,
+      "patrimonio": 987654321
+    },
+    {
+      "fecha": "2026-02-27",
+      "fondo": "FCI Beta",
+      "vcp": 102.42,
+      "ccp": 800.5,
+      "patrimonio": 654321987
+    }
+  ]
+}
