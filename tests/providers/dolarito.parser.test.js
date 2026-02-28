@@ -5,7 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { parseDolaritoHtml } from "../../src/providers/dolarito.js";
-import { resolveWithFallback } from "../../src/providers/errors.js";
+import { ProviderDataError, resolveWithFallback } from "../../src/providers/errors.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -34,11 +34,15 @@ describe("providers/dolarito parser", () => {
     const fallback = resolveWithFallback({
       freshValue: null,
       lastValidValue: lastValid,
-      error: new Error("parse failed"),
+      error: new ProviderDataError({
+        provider: "dolarito",
+        errorType: "parse",
+        message: "parse failed",
+      }),
     });
 
     assert.equal(fallback.usedFallback, true);
     assert.deepEqual(fallback.value, lastValid);
-    assert.equal(fallback.error?.errorType, "unknown");
+    assert.equal(fallback.error?.errorType, "parse");
   });
 });

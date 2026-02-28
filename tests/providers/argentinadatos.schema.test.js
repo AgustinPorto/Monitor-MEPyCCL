@@ -9,7 +9,7 @@ import {
   parseInflacionPayload,
   parsePlazoFijoPayload,
 } from "../../src/providers/argentinadatos.js";
-import { resolveWithFallback } from "../../src/providers/errors.js";
+import { ProviderDataError, resolveWithFallback } from "../../src/providers/errors.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -48,9 +48,14 @@ describe("providers/argentinadatos schema validation", () => {
     const fallback = resolveWithFallback({
       freshValue: null,
       lastValidValue: lastValidRows,
-      error: new Error("schema validation failed"),
+      error: new ProviderDataError({
+        provider: "argentinadatos_fci",
+        errorType: "schema",
+        message: "schema validation failed",
+      }),
     });
     assert.equal(fallback.usedFallback, true);
     assert.deepEqual(fallback.value, lastValidRows);
+    assert.equal(fallback.error?.errorType, "schema");
   });
 });
